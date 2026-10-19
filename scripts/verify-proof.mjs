@@ -27,8 +27,10 @@ try {
   const peers = await Promise.all(before.robots.map(robot => page.getByTestId(`tcp-${robot.id}`).textContent()));
   assert.equal(new Set(peers).size, 3); assert.ok(peers.every(peer => peer.includes('127.0.0.1:')));
   await page.getByRole('tab', { name: '指令执行记录', exact: true }).click();
+  await page.getByRole('tab', { name: '机器人总览', exact: true }).click();
   await page.getByLabel('动作时长').fill('500');
   await page.getByRole('button', { name: '↑ 前进', exact: true }).click();
+  await page.getByRole('tab', { name: '指令执行记录', exact: true }).click();
   await expect(page.getByText('执行成功', { exact: true })).toBeVisible();
   const stages = ['BROWSER_WS_SEND_QUEUED', 'GATEWAY_WS_RECEIVED', 'GATEWAY_TCP_WRITE_COMPLETED',
     'DEVICE_COMMAND_RECEIVED', 'DEVICE_ACK_WRITE_COMPLETED', 'GATEWAY_ACK_RECEIVED',
@@ -39,9 +41,11 @@ try {
   await page.getByRole('region', { name: '指令通信闭环证据' }).screenshot({ path: filename('trace.png') });
   before = await evidence();
   const original = before.robots.find(robot => robot.id === 'RB-002');
+  await page.getByRole('tab', { name: '机器人总览', exact: true }).click();
   await page.getByTestId('device-RB-002').click();
   await page.getByLabel('动作时长').fill('3000');
   await page.getByRole('button', { name: '↑ 前进', exact: true }).click();
+  await page.getByRole('tab', { name: '指令执行记录', exact: true }).click();
   await expect(page.getByText('设备已确认', { exact: true })).toBeVisible();
   await page.getByRole('tab', { name: '设备进程与 TCP 连接', exact: true }).click();
   await page.getByRole('button', { name: '停止 RB-002 进程', exact: true }).click();
@@ -68,6 +72,7 @@ try {
   const after = await evidence(), restarted = after.robots.find(robot => robot.id === 'RB-002');
   assert.notEqual(restarted.pid, original.pid); assert.notEqual(restarted.state.session_id, original.state.session_id);
   process.kill(restarted.pid, 0);
+  await page.getByRole('tab', { name: '机器人总览', exact: true }).click();
   await expect(page.getByTestId('position-x')).toHaveText(stoppedWorker.state.pose.x.toFixed(3));
   await page.waitForTimeout(250);
   await expect(page.getByTestId('position-x')).toHaveText(stoppedWorker.state.pose.x.toFixed(3));

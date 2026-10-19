@@ -13,10 +13,10 @@
 .fleet-controls .detail-panel{flex:1}
 .fleet-controls .device-details strong{font-size:20px}
 .fleet-controls .motion-controls{padding:0 20px 18px}
-.diagnostics-tabs{display:flex;gap:6px;margin-top:26px;border-bottom:1px solid #dce5dc;overflow-x:auto}
-.diagnostics-tabs button{border:0;border-bottom:3px solid transparent;background:transparent;padding:15px 20px;color:#80917c;white-space:nowrap;font-size:12px}
-.diagnostics-tabs button[aria-selected="true"]{border-bottom-color:#6d994a;color:#355e36;font-weight:600}
-.diagnostics-tabs button:hover{background:#eaf0e5}
 [role="tabpanel"]{min-width:0}
 @media(max-width:1000px){.operations-layout{grid-template-columns:1fr}.operations-layout .robot-map{flex:none;height:390px;min-height:0}}
-@media(max-width:720px){.operations-layout{gap:16px}.operations-layout .robot-map{height:300px}.diagnostics-tabs button{padding:14px 12px;font-size:11px}}
+@media(max-width:720px){.operations-layout{gap:16px}.operations-layout .robot-map{height:300px}}
+
+.sidebar-nav{display:grid;gap:8px}.sidebar-nav .nav-item{width:100%;border:0;background:transparent;color:inherit;font:inherit;font-size:12px;line-height:1.6;align-items:center;text-align:left;gap:10px}.sidebar-nav .nav-item.active{background:#24403b;color:#dcf3e7}.sidebar-nav .nav-item:hover{background:#1d3732}.sidebar-nav .nav-item span{flex-shrink:0;font-size:16px}
+#panel-processes>.proof-panel,#panel-history>.history-panel,#panel-messages{margin-top:0}
+@media(max-width:720px){.sidebar-nav{display:flex;overflow:auto;margin-top:14px}.sidebar .sidebar-nav .nav-item{display:flex;flex:0 0 auto;width:auto;white-space:nowrap;padding:10px;font-size:11px}}

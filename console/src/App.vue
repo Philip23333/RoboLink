@@ -12,16 +12,18 @@ const commands = new CommandBook();
 const messages = new MessageBook();
 const traceBook = new TraceBook();
 const traceCommand = ref('');
-const activeTab = ref<'processes' | 'history' | 'messages'>('history');
-const tabs = [{ id: 'processes', label: '设备进程与 TCP 连接' }, { id: 'history', label: '指令执行记录' }, { id: 'messages', label: '通信消息' }] as const;
+const activeTab = ref<'overview' | 'processes' | 'history' | 'messages'>('overview');
+const tabs = [{ id: 'overview', label: '机器人总览' }, { id: 'processes', label: '设备进程与 TCP 连接' }, { id: 'history', label: '指令执行记录' }, { id: 'messages', label: '通信消息' }] as const;
 function moveTab(event: KeyboardEvent, index: number) {
-  const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+  const offset = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
   if (!offset && event.key !== 'Home' && event.key !== 'End') return;
   event.preventDefault();
   const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + offset + tabs.length) % tabs.length;
   activeTab.value = tabs[next]!.id;
   document.getElementById(`tab-${activeTab.value}`)?.focus();
 }
+const currentPage = computed(() => tabs.find(tab => tab.id === activeTab.value)!);
+const pageDescriptions = { overview: '连接设备，观察状态。所有位置数据均来自模拟机器人回传。', processes: '查看独立机器人进程与网关 TCP 会话，核对设备连接。', history: '查看指令执行状态，以及网页、网关与设备之间的通信闭环。', messages: '查看收发消息及解码内容，认证内容不记录。' };
 const revision = ref(0);
 const sessions = new Map<string, string>();
 const connection = new ControlConnection(value => {
@@ -95,14 +97,18 @@ onBeforeUnmount(() => connection.dispose());
 <template>
   <div class="shell">
     <aside class="sidebar"><a class="brand" href="/" aria-label="RoboLink 首页"><span class="brand-mark">R</span>RoboLink<span class="brand-dot">®</span></a>
-      <div class="workspace-label">WORKSPACE</div><div class="nav-item active"><span>◈</span> 机器人总览</div>
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="sidebar-nav" role="tablist" aria-label="控制中心导航" aria-orientation="vertical">
+        <button v-for="(tab, index) in tabs" :key="tab.id" :id="`tab-${tab.id}`" class="nav-item" :class="{ active: activeTab === tab.id }" role="tab" :aria-selected="activeTab === tab.id" :aria-controls="`panel-${tab.id}`" :tabindex="activeTab === tab.id ? 0 : -1" @click="activeTab = tab.id" @keydown="moveTab($event, index)"><span aria-hidden="true">{{ ['◈', '⌁', '☷', '⇄'][index] }}</span>{{ tab.label }}</button>
+      </nav>
       <div class="sidebar-bottom"><span class="live-dot"></span> 本地开发环境<br><small>软件模拟 · 非实体设备</small></div>
     </aside>
     <main>
-      <header class="topbar"><span>工作空间 <span class="slash">/</span> 控制中心</span><span class="environment">LOCAL DEMO</span></header>
+      <header class="topbar"><span>工作空间 <span class="slash">/</span> {{ currentPage.label }}</span><span class="environment">LOCAL DEMO</span></header>
       <div class="content">
-        <div class="page-heading"><div><div class="eyebrow">FLEET OPERATIONS</div><h1>机器人控制中心<span class="title-dot">.</span></h1><p>连接设备，观察状态。所有位置数据均来自模拟机器人回传。</p></div>
+        <div class="page-heading"><div><div class="eyebrow">FLEET OPERATIONS</div><h1>{{ activeTab === 'overview' ? '机器人控制中心' : currentPage.label }}<span class="title-dot">.</span></h1><p>{{ pageDescriptions[activeTab] }}</p></div>
           <span class="connection-badge" :class="{ good: connected }" data-testid="connection-state" :data-session="view.session"><i></i>{{ phaseLabel[view.phase] }}</span></div>
+        <div v-show="activeTab === 'overview'" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
         <section class="connection-panel" aria-label="连接配置"><div class="section-intro"><strong>控制通道</strong><small>访问凭证仅保留在当前页面内存中</small></div>
           <form class="connection-form" @submit.prevent="connect"><label>网关地址<input v-model="endpoint" aria-label="网关地址" spellcheck="false"></label>
             <label class="account-field">账号<input v-model="account" aria-label="账号" autocomplete="username"></label>
@@ -137,8 +143,6 @@ onBeforeUnmount(() => connection.dispose());
             <div class="detail-note"><span class="live-dot"></span> {{ connected ? '实时状态同步已启用' : '当前状态不可用于控制' }}<small>超过 3 秒未更新会标记为遥测陈旧 · 运动由设备本地限时结束</small></div>
           </section></div>
         </div>
-        <div class="diagnostics-tabs" role="tablist" aria-label="运行详情">
-          <button v-for="(tab, index) in tabs" :key="tab.id" :id="`tab-${tab.id}`" role="tab" :aria-selected="activeTab === tab.id" :aria-controls="`panel-${tab.id}`" :tabindex="activeTab === tab.id ? 0 : -1" @click="activeTab = tab.id" @keydown="moveTab($event, index)">{{ tab.label }}</button>
         </div>
         <ProofPanel :show-process="activeTab === 'processes'" :show-trace="activeTab === 'history'" :devices="view.devices" :connected="connected" :available="demoAvailable" :commands="commandRows" :traces="traceRows" v-model:selected-command="traceCommand">
           <template #history>

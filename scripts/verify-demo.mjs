@@ -14,6 +14,7 @@ try {
   await page.getByLabel('动作时长').fill('500');
   const before = await page.getByTestId('position-x').textContent();
   await page.getByRole('button', { name: '↑ 前进', exact: true }).click();
+  await page.getByRole('tab', { name: '指令执行记录', exact: true }).click();
   await page.getByText('执行成功', { exact: true }).waitFor();
   await page.waitForFunction(previous => document.querySelector('[data-testid="position-x"]')?.textContent !== previous, before);
   const config = await (await page.request.get('http://127.0.0.1:5173/__demo/session')).json();
