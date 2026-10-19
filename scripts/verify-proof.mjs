@@ -11,6 +11,7 @@ try {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('http://127.0.0.1:5173');
   await page.getByRole('button', { name: '连接本地演示', exact: true }).click();
+  await page.getByRole('tab', { name: '设备进程与 TCP 连接', exact: true }).click();
   await expect(page.getByTestId('process-count')).toHaveText('3 个独立进程');
   await expect(page.getByTestId('online-count')).toHaveText('3台');
   const evidence = async () => await (await page.request.get('http://127.0.0.1:5173/__demo/evidence')).json();
@@ -25,6 +26,7 @@ try {
   }
   const peers = await Promise.all(before.robots.map(robot => page.getByTestId(`tcp-${robot.id}`).textContent()));
   assert.equal(new Set(peers).size, 3); assert.ok(peers.every(peer => peer.includes('127.0.0.1:')));
+  await page.getByRole('tab', { name: '指令执行记录', exact: true }).click();
   await page.getByLabel('动作时长').fill('500');
   await page.getByRole('button', { name: '↑ 前进', exact: true }).click();
   await expect(page.getByText('执行成功', { exact: true })).toBeVisible();
@@ -41,11 +43,14 @@ try {
   await page.getByLabel('动作时长').fill('3000');
   await page.getByRole('button', { name: '↑ 前进', exact: true }).click();
   await expect(page.getByText('设备已确认', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: '设备进程与 TCP 连接', exact: true }).click();
   await page.getByRole('button', { name: '停止 RB-002 进程', exact: true }).click();
   await expect(page.getByTestId('process-count')).toHaveText('2 个独立进程');
   await expect(page.getByTestId('online-count')).toHaveText('2台');
   await expect(page.getByTestId('device-RB-002')).toContainText('离线');
+  await page.getByRole('tab', { name: '指令执行记录', exact: true }).click();
   await expect(page.getByText('结果未知', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: '设备进程与 TCP 连接', exact: true }).click();
   assert.throws(() => process.kill(original.pid, 0));
   const stopped = await evidence();
   const stoppedWorker = stopped.robots.find(robot => robot.id === 'RB-002');
@@ -66,6 +71,7 @@ try {
   await expect(page.getByTestId('position-x')).toHaveText(stoppedWorker.state.pose.x.toFixed(3));
   await page.waitForTimeout(250);
   await expect(page.getByTestId('position-x')).toHaveText(stoppedWorker.state.pose.x.toFixed(3));
+  await page.getByRole('tab', { name: '指令执行记录', exact: true }).click();
   await expect(page.locator('tbody tr')).toHaveCount(2);
   await expect(page.getByTestId('trace-DEVICE_RESULT_WRITE_COMPLETED')).not.toHaveClass(/observed/);
   await expect(page.getByTestId('trace-BROWSER_RESULT_RECEIVED')).not.toHaveClass(/observed/);
@@ -74,6 +80,7 @@ try {
   assert.equal((await page.request.post('http://127.0.0.1:5173/__demo/robots/RB-001/stop')).status(), 403);
   assert.equal((await page.request.get('http://127.0.0.1:19006/evidence')).status(), 404);
   await page.getByLabel('链路指令').selectOption(firstCommand);
+  await page.getByRole('tab', { name: '设备进程与 TCP 连接', exact: true }).click();
   await page.getByRole('region', { name: '设备进程与连接证据' }).screenshot({ path: filename('processes.png') });
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

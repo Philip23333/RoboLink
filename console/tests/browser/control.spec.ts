@@ -88,6 +88,7 @@ test('message fields decode without credentials; mobile control layout fits', as
   await connect(page);
   await page.getByRole('button', { name: '↑ 前进', exact: true }).click();
   await expect(page.getByText('执行成功', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: '通信消息', exact: true }).click();
   const panel = page.getByTestId('message-list');
   expect(await panel.textContent()).not.toContain('public-browser-fixture-only');
   expect(await panel.textContent()).not.toContain('controlAuthenticate');
