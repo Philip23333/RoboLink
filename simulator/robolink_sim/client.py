@@ -1,15 +1,18 @@
-"""One independent TCP device session; automatic reconnection is a later step."""
+"""Independent TCP device sessions, local stop and bounded reconnect backoff."""
 import asyncio
 from contextlib import suppress
+import heapq
 import math
 import time
+from google.protobuf.message import DecodeError
 
 from .model import IDENTIFIER, RobotModel
 from .protocol import frame, pb, read_frame
+from .recovery import FaultPlan, retry_delay
 
 
 class RobotClient:
-    def __init__(self, robot_id, credential, model=None, telemetry_hz=10.0):
+    def __init__(self, robot_id, credential, model=None, telemetry_hz=10.0, faults=None):
         if (not IDENTIFIER.fullmatch(robot_id) or not credential or len(credential.encode()) > 1024
                 or not math.isfinite(telemetry_hz) or not 0 < telemetry_hz <= 100):
             raise ValueError("Invalid device configuration")
@@ -21,6 +24,33 @@ class RobotClient:
         self.sent_telemetry = 0
         self.seq = self.gateway_seq = 0
         self._running = False
+        self.faults = faults if faults is not None else FaultPlan()
+        self.connections = 0
+        self.state = "disconnected"
+        self._writer_stream = None
+
+    def disconnect(self):
+        """Fault/demo hook: stop locally before closing the live transport."""
+        self.model.disconnect(time.monotonic())
+        if self._writer_stream:
+            self._writer_stream.close()
+
+    async def run_forever(self, host="127.0.0.1", port=9000, on_state=None):
+        attempt = 0
+        while True:
+            connected_before = self.connections
+            self.state = "connecting"
+            try:
+                await self.run(host, port)
+            except (OSError, ValueError, DecodeError, asyncio.IncompleteReadError, TimeoutError):
+                self.state = "retrying"
+                if self.connections != connected_before:
+                    attempt = 0
+                delay = retry_delay(attempt)
+                attempt += 1
+                if on_state:
+                    on_state(self.robot_id, self.state, round(delay, 2))
+                await asyncio.sleep(delay)
 
     async def run(self, host="127.0.0.1", port=9000):
         if self._running:
@@ -28,7 +58,8 @@ class RobotClient:
         self._running = True
         self.ready.clear()
         self.seq = self.gateway_seq = 0
-        self.replies = asyncio.Queue(maxsize=64)
+        self.replies = []
+        self.delivery_order = 0
         self.wake = asyncio.Event()
         self.latest = None
         self.heartbeat_pending = None
@@ -36,6 +67,7 @@ class RobotClient:
         writer = None
         try:
             reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), 5)
+            self._writer_stream = writer
             registration = pb.Envelope(protocol_version=1, robot_id=self.robot_id,
                                        register=pb.Register(credential=self._credential))
             writer.write(frame(registration))
@@ -52,6 +84,9 @@ class RobotClient:
             self.heartbeat_interval = result.heartbeat_interval_ms / 1000
             self.heartbeat_timeout = result.heartbeat_timeout_ms / 1000
             self.next_heartbeat = time.monotonic()
+            self.connected_at = time.monotonic()
+            self.connections += 1
+            self.state = "online"
             tasks = [asyncio.create_task(self._reader(reader)),
                      asyncio.create_task(self._writer(writer)),
                      asyncio.create_task(self._ticker())]
@@ -65,6 +100,8 @@ class RobotClient:
             self.model.disconnect(time.monotonic())
             self.ready.clear()
             self.session_id = ""
+            self.state = "disconnected"
+            self._writer_stream = None
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -75,10 +112,13 @@ class RobotClient:
             self._running = False
 
     def _enqueue(self, payload):
-        try:
-            self.replies.put_nowait(payload)
-        except asyncio.QueueFull:
-            raise ConnectionError("Device reply queue full") from None
+        delivery_at = self.faults.delivery_at(payload, time.monotonic())
+        if delivery_at is None:
+            return
+        self.delivery_order += 1
+        if len(self.replies) >= 64:
+            raise ConnectionError("Device reply queue full")
+        heapq.heappush(self.replies, (delivery_at, self.delivery_order, payload))
         self.wake.set()
 
     async def _reader(self, reader):
@@ -109,6 +149,10 @@ class RobotClient:
         next_telemetry = time.monotonic()
         while True:
             now = time.monotonic()
+            if (self.faults.disconnect_after and not self.faults.disconnected
+                    and now - self.connected_at >= self.faults.disconnect_after):
+                self.faults.disconnected = True
+                raise ConnectionError("Injected device disconnect")
             if self.heartbeat_pending and now - self.heartbeat_pending[1] >= self.heartbeat_timeout:
                 raise ConnectionError("Heartbeat response timeout")
             for payload in self.model.advance(now):
@@ -123,14 +167,16 @@ class RobotClient:
         while True:
             self.wake.clear()
             now = time.monotonic()
-            if not self.replies.empty():
-                payload = self.replies.get_nowait()
+            delivery_due = self.replies[0][0] if self.replies else math.inf
+            if delivery_due <= now:
+                _, _, payload = heapq.heappop(self.replies)
             elif self.heartbeat_pending is None and now >= self.next_heartbeat:
                 payload = pb.Heartbeat()
             elif self.latest is not None:
                 payload, self.latest = self.latest, None
             else:
                 delay = max(0.001, self.next_heartbeat - now) if self.heartbeat_pending is None else self.heartbeat_interval
+                delay = min(delay, max(0.001, delivery_due - now))
                 with suppress(TimeoutError):
                     await asyncio.wait_for(self.wake.wait(), delay)
                 continue

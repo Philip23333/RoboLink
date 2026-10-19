@@ -31,11 +31,13 @@ def main():
         return 1
     from gateway_check import gateway_check
     integration = asyncio.run(gateway_check())
+    from recovery_check import recovery_check
+    recovery = asyncio.run(recovery_check())
     report.write_text(json.dumps({"status": "PASS", "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
                      "duration_seconds": round(time.monotonic() - started, 3), "python": sys.version.split()[0],
                      "platform": platform.platform(), "logical_cpu_count": os.cpu_count(),
                      "unit_and_local_network_tests": result.testsRun, "cases": cases,
-                     "integration": integration}, ensure_ascii=False, indent=2), encoding="utf-8")
+                     "integration": integration, "recovery": recovery}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"PASS: {result.testsRun} Python tests + actual Java/WebSocket/three-robot/CLI integration. Report: {report}")
     return 0
 
