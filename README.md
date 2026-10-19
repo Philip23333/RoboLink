@@ -2,7 +2,27 @@
 
 多机器人云端实时控制与 AI 技能编排平台，当前推进通信控制 MVP。
 
-当前完成范围：共享协议与三端互通、设备 TCP 接入、认证与心跳、控制端 WebSocket 认证、设备订阅、指令路由与状态跟踪，以及 Python 多机器人运动模拟。三台软件设备已通过真实通信控制验证；自动重连与 Vue 页面将在后续步骤实现。
+当前完成前八个执行单元：自定义 TCP / Protobuf 网关、设备认证与心跳、控制端 WebSocket 桥接、三台 Python 模拟机器人、独立重连，以及 Vue 实时监控、二维位置、前进 / 转向 / STOP 和指令结果。网页位置来自设备回传，已通过实际浏览器控制验证。
+
+## 直接体验本地网页
+
+首次按下文准备环境后，在项目根目录运行：
+
+```powershell
+.\scripts\start-demo.ps1
+```
+
+打开 **http://127.0.0.1:5173**，点击「连接本地演示」，选择机器人，再点击「前进」「左转」「右转」或「停止」。观察坐标、地图和指令记录：ACK 表示设备接受，执行成功才表示收到完成结果。默认动作 1 秒，速度 0.2 m/s。
+
+启动脚本在后台运行本机网关、三台设备和网页，首次缺少本地凭证时随机生成并保存在忽略文件中，不覆盖已有配置。只监听回环地址；凭证不会放进 URL、前端构建产物或浏览器存储。「连接本地演示」依赖显式启用的本地 Vite 开发接口，跨来源和跨站请求会被拒绝；生产构建没有该接口。
+
+停止所有本次演示服务：
+
+```powershell
+.\scripts\stop-demo.ps1
+```
+
+使用端口 9000、9001、5173 和本地管理端口 19006。与手动启动方式二选一，不要同时占用相同端口。监督进程只清理自己启动的服务；日志在 `artifacts/demo/`。这是本地软件模拟演示，没有真实机器人、TLS、公网部署或持久化。
 
 ## 目录与职责
 
@@ -11,15 +31,15 @@
 | `protocol/` | 三端共用的唯一 `.proto` 协议源与语义约定 |
 | `gateway/` | Java 21 / Netty 网关，设备 TCP、控制端 WebSocket 与指令状态管理 |
 | `simulator/` | Python asyncio 多机器人模拟器、运动与去重模型、协议样例和测试 |
-| `console/` | TypeScript 协议生成与类型检查，后续扩展 Vue3 页面 |
+| `console/` | Vue3 实时控制台、TypeScript 二进制解码、位姿与控制及浏览器测试 |
 | `scripts/` | Windows PowerShell 环境准备、协议生成及完整验证入口 |
 | `docs/changes/` | 每次执行后的修改说明，重点解释技术应用与验证结果 |
 
-执行总路线见 [MVP-ROADMAP.md](MVP-ROADMAP.md)，分步范围见[第一步](docs/STEP-01.md)、[第二步](docs/STEP-02.md)、[第三步](docs/STEP-03.md)、[第四步](docs/STEP-04.md)和[第五步](docs/STEP-05.md)。
+执行总路线见 [MVP-ROADMAP.md](MVP-ROADMAP.md)，本轮分步记录见[第六步](docs/STEP-06.md)、[第七步](docs/STEP-07.md)和[第八步](docs/STEP-08.md)。前五步的历史记录保留在 docs 中。
 
 ## 环境与固定依赖
 
-本次开发入口面向 **Windows x64 / PowerShell 7**，需要 JDK 21、Python 3.12+、Node.js 22+。推荐使用验收记录中的实际环境版本；其他系统尚未验证统一脚本。
+本次开发入口面向 **Windows x64 / PowerShell 7**，需要 JDK 21、Python 3.12+、Node.js 22.12+，实际使用 Node 24.19。推荐使用验收记录中的实际环境版本；其他系统尚未验证统一脚本。
 
 | 工具 / 依赖 | 固定版本或约束 |
 | --- | --- |
@@ -32,6 +52,8 @@
 | ts-proto / TypeScript | 2.18.0 / 5.9.3 |
 | TypeScript Protobuf 运行时 | @bufbuild/protobuf 2.16.0 |
 | tsx / Node 类型 | 4.23.15 / @types/node 24.10.1 |
+| Vue / Vite / Vue 插件 | 3.5.44 / 8.3.4 / 6.0.10 |
+| vue-tsc / Playwright | 3.3.13 / 1.64.1 |
 
 Node 间接依赖由 `console/package-lock.json` 锁定，恢复依赖使用 `npm ci`。Python 依赖在 `simulator/requirements.txt` 固定。Maven 插件和直接依赖版本在 POM 中固定。
 
@@ -74,7 +96,7 @@ Node 间接依赖由 `console/package-lock.json` 锁定，恢复依赖使用 `np
 
 固定样例覆盖遥测、运动指令、控制认证请求与认证结果，包含枚举、嵌套位姿、`oneof` 分支、`uint64` 最大值与超过 JavaScript 安全整数范围的时间戳。认证样例仅使用公开测试字符串，时间戳用于精度验证，不代表现实时间。
 
-目前已提供设备 TCP 和可选的控制端 WebSocket 服务启动入口，见下文；完整控制台演示将在后续实现。
+下面保留分模块启动与验证方式；直接体验网页可使用上文的一键启动。
 
 TCP 分帧与编解码验收：
 
@@ -141,7 +163,7 @@ TCP 分帧与编解码验收：
 
 设备 TCP 默认 `127.0.0.1:9000`，WebSocket 默认 `ws://127.0.0.1:9001/control`，可分别使用 `-Port` 和 `-ControlPort` 更改。不提供控制端配置或相应环境变量时，保留仅 TCP 的启动方式。
 
-当前没有 Vue 页面，可先运行桥接验收验证接口：
+仅验证桥接接口时运行：
 
 ```powershell
 .\scripts\verify-control.ps1 -Clean
@@ -193,16 +215,32 @@ ACK 与结果只发给原 WebSocket 会话。已发送但超时或断连的指�
 .\scripts\verify-simulator.ps1
 ```
 
-它回归原有 83 项 Java 测试，再运行 24 项 Python 测试，并临时启动真正的 Java 网关、三台 Python 设备和自动化 WebSocket 控制客户端，验证前进、转向、STOP、隔离及实际命令行启动入口。无需手动启动服务，测试使用随机端口与临时凭证，结束后清理。结果输出到 `artifacts/simulator/report.json`，不是网页演示或性能压测。
+它回归原有 83 项 Java 测试，再运行 28 项 Python 测试，并临时启动真正的 Java 网关、三台 Python 设备和自动化 WebSocket 控制客户端，验证运动、隔离、重连、故障和网关重启恢复。无需手动启动服务，测试使用临时凭证，结束后清理。结果输出到 `artifacts/simulator/report.json`，不是性能压测。
 
-## 距离网页演示还缺什么
+## 单独启动与验证 Vue 网页
 
-第 6 步已完成。按现有执行路线，首次网页控制闭环还剩两个单元：
+手动启动网关与模拟器后，第三个终端执行：
 
-1. 第 7 步：Vue3 连接、认证、订阅、设备列表与状态同步；完成后可看到实时监控页面。
-2. 第 8 步：二维位置 / 朝向、前进与转向及停止按钮、ACK / 结果和有界消息面板；完成后可以在网页操作设备并看到回传位姿变化。
+```powershell
+cd console
+npm run dev
+```
 
-之后第 9 步整理完整启动与演示验收。这是范围划分，不是完成日期或工时保证。
+输入本地控制凭证完成认证；凭证只保留当前页面内存，整页刷新后重新连接。设备和网页连接各自重试，快照恢复不重发运动。ACK 或结果超时后先 STOP，再决定是否发新动作。网页断线不能证明设备停止，设备仍依靠本地动作时限和设备链路检测。
+
+网页位置与朝向均来自遥测。陈旧、离线和网页断连状态分别显示；运动按钮会受状态和参数范围限制，STOP 可中断运动。指令最多保留 100 条、通信消息最多 120 条，同一设备的遥测只保留最新一条。消息详情展示 Protobuf 解码后的字段，排除认证内容。
+
+浏览器验收前先停止常驻演示，避免 5173 端口冲突：
+
+```powershell
+# 首次下载测试浏览器
+cd console
+npx playwright install chromium
+cd ..
+.\scripts\verify-console.ps1
+```
+
+包含 8 项状态测试、类型检查与构建、10 项真实 Chromium 测试，自动运行隔离的 Java / Python / Vue 服务。覆盖运动、STOP、超时、未知状态、消息解码、重连、认证和移动布局。常驻演示运行后还可执行 `node scripts/verify-demo.mjs` 检查实际一键启动链路。
 
 ## 协议代码生成策略
 
@@ -218,4 +256,4 @@ Maven 使用固定版本 protoc 生成 Java；统一脚本复用同一个可执�
 
 ## 验证记录与边界
 
-实际结果见[第一步验收](docs/acceptance.md)、[第二步验收](docs/acceptance-step-02.md)、[第三步验收](docs/acceptance-step-03.md)、[第四步验收](docs/acceptance-step-04.md)和[第五步验收](docs/acceptance-step-05.md)。已验证真实 WebSocket / TCP 通信、指令状态流转与三台软件机器人的位移；没有前端、自动重连、真实硬件或并发性能成绩。
+实际结果见[第一步验收](docs/acceptance.md)、[第二步验收](docs/acceptance-step-02.md)、[第三步验收](docs/acceptance-step-03.md)、[第四步验收](docs/acceptance-step-04.md)、[第五步验收](docs/acceptance-step-05.md)，以及[第六步](docs/STEP-06.md)、[第七步](docs/STEP-07.md)、[第八步](docs/STEP-08.md)。已验证真实本机通信与网页控制、三台软件设备运动和重连。没有实体硬件、持久化、真实网络丢包或并发性能成绩，网关重启会丢失指令历史。

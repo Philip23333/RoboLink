@@ -64,6 +64,16 @@ async def main():
                     status, body = 403, {"error": "test runner only"}
                 elif method == "GET" and path == "/ready":
                     pass
+                elif method == "POST" and path == "/reset":
+                    for task in robot_tasks.values():
+                        task.cancel()
+                    await asyncio.gather(*robot_tasks.values(), return_exceptions=True)
+                    robots.clear()
+                    for index in range(1, 4):
+                        start_robot(index)
+                    async with asyncio.timeout(5):
+                        while not all(robot.ready.is_set() for robot in robots.values()):
+                            await asyncio.sleep(0.02)
                 elif method == "POST" and path == "/restart":
                     gateway.terminate()
                     await gateway.wait()

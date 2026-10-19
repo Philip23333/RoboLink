@@ -20,7 +20,8 @@ export class ControlConnection {
   private credentials?: { url: string; id: string; token: string };
   private stopped = true;
   private rateBuckets = new Map<number, number>();
-  constructor(private change: (value: View) => void) {
+  constructor(private change: (value: View) => void,
+              private event?: (message: Envelope, bytes: number, direction: 'in' | 'out') => void) {
     this.maintenance = setInterval(() => this.publish(), 500);
   }
   private publish() {
@@ -67,6 +68,7 @@ export class ControlConnection {
         if (!(event.data instanceof ArrayBuffer) || event.data.byteLength > 65536) throw new Error();
         const message = Envelope.decode(new Uint8Array(event.data));
         if (message.protocolVersion !== 1 || !message.payload) throw new Error();
+        this.event?.(message, event.data.byteLength, 'in');
         if (message.payload.$case === 'controlAuthResult') {
           if (!message.payload.value.accepted) {
             this.stopped = true;
@@ -105,7 +107,9 @@ export class ControlConnection {
   }
   send(message: Envelope): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN || this.socket.bufferedAmount > 65536) return false;
-    this.socket.send(Envelope.encode(message).finish());
+    const bytes = Envelope.encode(message).finish();
+    this.socket.send(bytes);
+    this.event?.(message, bytes.byteLength, 'out');
     return true;
   }
   disconnect() {

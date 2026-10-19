@@ -249,5 +249,5 @@ async def gateway_check():
                        "duplicate controller request replay", "STOP interrupts active command",
                        "invalid parameters rejected", "CLI starts three devices and executes command"],
             "cleanup": "temporary Java/CLI processes, device tasks, sockets and credential files removed",
-            "scope": "localhost smoke test, not throughput benchmark; no Vue UI, physical robot or automatic reconnect"}
+            "scope": "localhost motion/CLI smoke; automatic recovery checked separately; no hardware or throughput benchmark"}
 

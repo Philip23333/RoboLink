@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "recorded_at_utc": "2026-10-19T17:16:04.772Z",
+  "checks": [
+    "real start-demo supervisor",
+    "local demo authentication without copying token",
+    "three robots online",
+    "browser motion succeeds and telemetry position changes",
+    "no credential in browser storage",
+    "cross-origin and cross-site demo credential requests rejected",
+    "no browser runtime errors"
+  ],
+  "scope": "Local startup and browser smoke, not performance or hardware test",
+  "lifecycle_checks": [
+    "start-demo starts isolated localhost services",
+    "stop-demo completes owned process cleanup",
+    "start-demo succeeds again after clean stop"
+  ]
+}
