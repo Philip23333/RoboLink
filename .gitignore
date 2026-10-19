@@ -15,4 +15,7 @@ artifacts/
 .idea/
 .vscode/
 *.log
+console/dist/
+console/test-results/
+console/playwright-report/
 

@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "recorded_at_utc": "2026-10-19T17:06:08.273318+00:00",
+  "browser": "Playwright Chromium",
+  "stats": {
+    "startTime": "2026-10-19T17:05:24.388Z",
+    "duration": 7716.802999999999,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "cases": [
+    "real binary subscription, device selection and reload snapshot",
+    "bad credentials rejected and never written to browser storage",
+    "offline device differs from browser loss; gateway restart resynchronizes",
+    "mobile layout remains within viewport"
+  ],
+  "scope": "Real localhost Java gateway, Python devices and Vue browser; not hardware or performance test"
+}
