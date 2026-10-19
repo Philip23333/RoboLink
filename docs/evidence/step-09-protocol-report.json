@@ -1,0 +1,79 @@
+{
+  "status": "PASS",
+  "started_at_utc": "2026-10-19T18:28:01.1351788+00:00",
+  "duration_seconds": 39.08,
+  "clean_generation": false,
+  "checks": [
+    "Java build",
+    "TypeScript typecheck",
+    "uint64 precision",
+    "oneof branches"
+  ],
+  "fixture_names": [
+    "telemetry",
+    "command",
+    "control-auth",
+    "control-auth-result",
+    "command-trace",
+    "snapshot-diagnostics"
+  ],
+  "seq": "18446744073709551615",
+  "timestamp_ms": "9007199254740993",
+  "pairs": [
+    {
+      "encoder": "java",
+      "decoder": "java",
+      "fixtures": 6,
+      "status": "PASS"
+    },
+    {
+      "encoder": "java",
+      "decoder": "python",
+      "fixtures": 6,
+      "status": "PASS"
+    },
+    {
+      "encoder": "java",
+      "decoder": "typescript",
+      "fixtures": 6,
+      "status": "PASS"
+    },
+    {
+      "encoder": "python",
+      "decoder": "java",
+      "fixtures": 6,
+      "status": "PASS"
+    },
+    {
+      "encoder": "python",
+      "decoder": "python",
+      "fixtures": 6,
+      "status": "PASS"
+    },
+    {
+      "encoder": "python",
+      "decoder": "typescript",
+      "fixtures": 6,
+      "status": "PASS"
+    },
+    {
+      "encoder": "typescript",
+      "decoder": "java",
+      "fixtures": 6,
+      "status": "PASS"
+    },
+    {
+      "encoder": "typescript",
+      "decoder": "python",
+      "fixtures": 6,
+      "status": "PASS"
+    },
+    {
+      "encoder": "typescript",
+      "decoder": "typescript",
+      "fixtures": 6,
+      "status": "PASS"
+    }
+  ],
+  "scope": "serialization only; no TCP, WebSocket, simulator motion or Vue UI"
+}

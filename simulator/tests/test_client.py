@@ -110,6 +110,8 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.robot.session_id, "")
 
     async def test_serial_writer_sequences_and_real_motion(self):
+        observed = []
+        self.robot.observer = observed.append
         await self.register()
         await self.send("command_request", command(duration=200))
         ack = await self.receive("command_ack")
@@ -120,6 +122,10 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertLess(result.seq, telemetry.seq)
         self.assertEqual(result.command_result.outcome, pb.COMMAND_OUTCOME_SUCCEEDED)
         self.assertAlmostEqual(telemetry.telemetry.pose.x_m, 0.04, places=6)
+        self.assertEqual(telemetry.telemetry.related_command_id, "move-1")
+        self.assertTrue({"DEVICE_COMMAND_RECEIVED", "DEVICE_ACK_WRITE_COMPLETED", "DEVICE_RESULT_WRITE_COMPLETED",
+                         "DEVICE_FINAL_TELEMETRY_WRITE_COMPLETED"}.issubset({event["stage"] for event in observed}))
+        self.assertTrue(all(event["session_id"] == "test-session" for event in observed))
 
     async def test_heartbeat_silence_stops_motion_even_while_telemetry_flows(self):
         await self.register(timeout_ms=180)

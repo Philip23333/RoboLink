@@ -86,7 +86,9 @@ final class DeviceConnectionHandler extends SimpleChannelInboundHandler<Envelope
         lastDeviceSeq = message.getSeq();
         if (message.hasHeartbeat()) {
             ctx.writeAndFlush(reply().setHeartbeatReply(HeartbeatReply.newBuilder()
-                    .setAcknowledgedSeq(message.getSeq())).build()).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                    .setAcknowledgedSeq(message.getSeq())).build()).addListener(future -> {
+                        if (future.isSuccess()) { session.recordedWrite(); } else { ctx.close(); }
+                    });
         }
         // Only accepted messages reach IdleStateHandler and any future telemetry consumers.
         ctx.fireChannelRead(message);
@@ -110,7 +112,7 @@ final class DeviceConnectionHandler extends SimpleChannelInboundHandler<Envelope
         ctx.writeAndFlush(reply().setRegisterResult(RegisterResult.newBuilder().setAccepted(true)
                 .setAssignedSessionId(session.sessionId()).setHeartbeatIntervalMs(config.heartbeatIntervalMs())
                 .setHeartbeatTimeoutMs(config.heartbeatTimeoutMs())).build())
-                .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                .addListener(future -> { if (future.isSuccess()) { session.recordedWrite(); } else { ctx.close(); } });
         // Do not forward Register: it contains a credential.
     }
 

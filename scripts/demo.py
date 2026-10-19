@@ -11,8 +11,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "simulator"))
 from robolink_sim.__main__ import credentials
-from robolink_sim.client import RobotClient
-from robolink_sim.model import RobotModel
+from demo_fleet import ProcessFleet
 
 
 async def main():
@@ -22,6 +21,8 @@ async def main():
     if not controllers.exists():
         controllers.write_text(f"operator.token={secrets.token_hex(24)}\noperator.robots=RB-001,RB-002,RB-003\n", encoding="utf-8")
     tokens = credentials(devices)
+    if not {"RB-001", "RB-002", "RB-003"}.issubset(tokens):
+        raise ValueError("Three device credentials are required")
     control_config = credentials(controllers)
     if not control_config.get("operator.token") or not {"RB-001", "RB-002", "RB-003"}.issubset(set(control_config.get("operator.robots", "").split(","))):
         raise ValueError("Local demo requires operator and three device scopes")
@@ -29,13 +30,15 @@ async def main():
     directory.mkdir(parents=True, exist_ok=True)
     ready_file = directory / "ready.json"
     ready_file.unlink(missing_ok=True)
+    admin_key = secrets.token_hex(24)
     environment = dict(os.environ, ROBOLINK_CREDENTIALS_FILE=str(devices), ROBOLINK_CONTROL_CREDENTIALS_FILE=str(controllers),
         ROBOLINK_HOST="127.0.0.1", ROBOLINK_PORT="9000", ROBOLINK_CONTROL_HOST="127.0.0.1", ROBOLINK_CONTROL_PORT="9001",
         ROBOLINK_CONTROL_ORIGINS="http://127.0.0.1:5173,http://localhost:5173",
         ROBOLINK_HEARTBEAT_INTERVAL_MS="3000", ROBOLINK_HEARTBEAT_TIMEOUT_MS="10000",
         ROBOLINK_ACK_TIMEOUT_MS="2000", ROBOLINK_RESULT_TIMEOUT_MS="5000",
-        ROBOLINK_DEMO_CONTROL_FILE=str(controllers))
-    children, tasks = [], []
+        ROBOLINK_DEMO_CONTROL_FILE=str(controllers), ROBOLINK_DEMO_ADMIN_KEY=admin_key)
+    children = []
+    fleet = ProcessFleet(ROOT, devices)
     stop = asyncio.Event()
     server = None
     try:
@@ -47,9 +50,12 @@ async def main():
         for _ in range(2):
             if not (await asyncio.wait_for(java.stdout.readline(), 10)).startswith(b"RoboLink"):
                 raise RuntimeError("Gateway did not start; check ports 9000/9001")
-        robots = [RobotClient(f"RB-{i:03d}", tokens[f"RB-{i:03d}"], RobotModel(x=(i - 1) * 2, y=i - 1, battery=88 - i)) for i in range(1, 4)]
-        tasks = [asyncio.create_task(robot.run_forever()) for robot in robots]
-        await asyncio.wait_for(asyncio.gather(*(robot.ready.wait() for robot in robots)), 8)
+        await asyncio.gather(*(fleet.start(identifier) for identifier in fleet.slots))
+        async with asyncio.timeout(10):
+            while not all(slot["state"].get("state") == "online" for slot in fleet.slots.values()):
+                if any(slot["process"].returncode is not None for slot in fleet.slots.values()):
+                    raise RuntimeError("A robot worker failed to start")
+                await asyncio.sleep(0.05)
         vite = await asyncio.create_subprocess_exec(shutil.which("node"), str(ROOT / "console/node_modules/vite/bin/vite.js"),
             "--host", "127.0.0.1", "--port", "5173", "--strictPort", cwd=ROOT / "console", env=environment,
             stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
@@ -76,8 +82,19 @@ async def main():
             try:
                 headers = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 2)
                 first = headers.split(b"\r\n", 1)[0]
+                fields = dict(line.split(b":", 1) for line in headers.lower().split(b"\r\n")[1:] if b":" in line)
+                authorized = secrets.compare_digest(fields.get(b"x-robolink-demo-key", b"").strip(), admin_key.encode())
                 if b"origin:" in headers.lower():
                     status, body = 403, {}
+                elif first == b"GET /evidence HTTP/1.1" and authorized:
+                    body = fleet.snapshot()
+                elif first.startswith(b"POST /robots/") and authorized:
+                    parts = first.decode().split(" ")[1].split("/")
+                    if len(parts) != 4 or parts[2] not in fleet.slots or parts[3] not in ("start", "stop"):
+                        status, body = 404, {}
+                    else:
+                        await (fleet.start(parts[2]) if parts[3] == "start" else fleet.stop(parts[2]))
+                        body = fleet.snapshot()
                 elif first == b"POST /stop HTTP/1.1":
                     stop.set()
                 elif first != b"GET /ready HTTP/1.1":
@@ -104,9 +121,7 @@ async def main():
         if server:
             server.close()
             await server.wait_closed()
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await fleet.close()
         for child in reversed(children):
             if child.returncode is None:
                 child.terminate()

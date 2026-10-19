@@ -1,7 +1,8 @@
 import { Envelope, RobotState, type Telemetry } from './generated/robolink';
 
 export type Device = { id: string; session: string; online: boolean; seq: bigint;
-  telemetry?: Telemetry; receivedAt: number };
+  telemetry?: Telemetry; receivedAt: number; remoteAddress?: string; receivedMessages?: bigint;
+  sentMessages?: bigint; connectedAt?: bigint; lastHeartbeatAt?: bigint };
 
 export function validTelemetry(value: Telemetry): boolean {
   return Number.isInteger(value.batteryPercent) && value.batteryPercent >= 0 && value.batteryPercent <= 100
@@ -21,7 +22,9 @@ export class DeviceState {
         if (robot.latestTelemetry && !validTelemetry(robot.latestTelemetry)) throw new Error('设备状态格式无效');
         next.set(robot.robotId, { id: robot.robotId, session: robot.sessionId, online: robot.online,
           seq: robot.telemetrySeq, telemetry: robot.latestTelemetry,
-          receivedAt: robot.latestTelemetry ? Math.min(now, Number(robot.lastSeenAtMs)) : 0 });
+          receivedAt: robot.latestTelemetry ? Math.min(now, Number(robot.telemetryObservedAtMs || robot.lastSeenAtMs)) : 0,
+          remoteAddress: robot.remoteAddress, receivedMessages: robot.receivedMessages, sentMessages: robot.sentMessages,
+          connectedAt: robot.connectedAtMs, lastHeartbeatAt: robot.lastHeartbeatAtMs });
       }
       this.devices = next;
     } else if (payload.$case === 'deviceStatusChanged') {

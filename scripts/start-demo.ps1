@@ -9,11 +9,21 @@ if (-not (Test-Path "$script:ProjectRoot/.venv/Scripts/python.exe") -or
     -not (Test-Path "$script:ProjectRoot/console/node_modules/vite/bin/vite.js")) {
     throw 'Run scripts/setup.ps1 first to prepare Python and Node dependencies.'
 }
-if (-not (Test-Path "$script:ProjectRoot/simulator/generated/robolink_pb2.py") -or
-    -not (Test-Path "$script:ProjectRoot/console/src/generated/robolink.ts")) {
+$protocolTime = (Get-Item "$script:ProjectRoot/protocol/robolink.proto").LastWriteTimeUtc
+$needsGeneration = @('simulator/generated/robolink_pb2.py', 'console/src/generated/robolink.ts') | Where-Object {
+    -not (Test-Path "$script:ProjectRoot/$_") -or (Get-Item "$script:ProjectRoot/$_").LastWriteTimeUtc -lt $protocolTime
+}
+if ($needsGeneration) {
     & "$PSScriptRoot/generate-protocol.ps1"
 }
-if (-not (Test-Path "$script:ProjectRoot/gateway/target/classes/dev/robolink/gateway/GatewayMain.class") -or
+$mainClass = "$script:ProjectRoot/gateway/target/classes/dev/robolink/gateway/GatewayMain.class"
+$needsBuild = -not (Test-Path $mainClass)
+if (-not $needsBuild) {
+    $buildTime = (Get-Item $mainClass).LastWriteTimeUtc
+    $needsBuild = $protocolTime -gt $buildTime -or (Get-Item "$script:ProjectRoot/gateway/pom.xml").LastWriteTimeUtc -gt $buildTime -or
+        @(Get-ChildItem "$script:ProjectRoot/gateway/src" -Recurse -File | Where-Object { $_.LastWriteTimeUtc -gt $buildTime }).Count -gt 0
+}
+if ($needsBuild -or
     -not (Test-Path "$script:ProjectRoot/gateway/target/dependency/netty-transport-4.1.135.Final.jar")) {
     Invoke-ProjectMaven @('package', 'dependency:copy-dependencies', '-DincludeScope=runtime')
 }

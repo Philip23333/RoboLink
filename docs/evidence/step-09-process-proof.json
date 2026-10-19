@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "recorded_at_utc": "2026-10-19T18:35:10.842Z",
+  "checks": [
+    "3 distinct supervisor PIDs equal worker self-reports and pass OS existence probes",
+    "3 distinct gateway-observed TCP peers and sessions match each worker",
+    "11 independently observed command stages",
+    "stopping RB-002 exits its OS process and makes only that robot offline",
+    "other 2 PIDs/sessions remain unchanged and telemetry continues",
+    "restart changes PID and session",
+    "stopped pose preserved, old motion never replayed",
+    "interrupted command trace never fabricates missing result",
+    "cross-origin and uncredentialed control calls rejected",
+    "desktop/mobile views and no page runtime errors"
+  ],
+  "process_evidence": {
+    "initial_pids": [
+      10760,
+      26684,
+      1196
+    ],
+    "stopped_pid": 26684,
+    "restarted_pid": 15284
+  },
+  "scope": "Local OS-process and real WebSocket/TCP observations; not physical hardware or latency/load benchmark",
+  "cleanup_check": "Verified all three owned robot PIDs exited on whole-demo shutdown; final supervisor restarted and proof rerun passed"
+}

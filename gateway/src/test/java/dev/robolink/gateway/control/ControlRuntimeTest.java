@@ -381,4 +381,41 @@ class ControlRuntimeTest {
         while (owner.active && System.nanoTime() < deadline) { Thread.sleep(5); }
         assertFalse(owner.active);
     }
+
+    @Test
+    void diagnosticsRecordActualStagesAndStayWithOwningController() throws Exception {
+        var owner = client(); var other = client(); var robot = device("RB-001");
+        owner.send(Envelope.newBuilder().setProtocolVersion(1).setSubscribe(Subscribe.newBuilder().setIncludeDiagnostics(true)).build());
+        owner.next(Envelope::hasSnapshot);
+        other.send(Envelope.newBuilder().setProtocolVersion(1).setSubscribe(Subscribe.newBuilder().setIncludeDiagnostics(true)).build());
+        other.next(Envelope::hasSnapshot);
+        owner.send(move("observed", robot.id));
+        robot.read();
+        robot.ack("observed", true);
+        owner.phase("observed", CommandPhase.COMMAND_PHASE_ACKED);
+        robot.result("observed", CommandOutcome.COMMAND_OUTCOME_SUCCEEDED);
+        owner.phase("observed", CommandPhase.COMMAND_PHASE_SUCCEEDED);
+        other.snapshot(); // Coordinator barrier after previous callbacks.
+        var traces = owner.delivered.stream().filter(Envelope::hasCommandTrace).toList();
+        assertEquals(Set.of("GATEWAY_WS_RECEIVED", "GATEWAY_TCP_WRITE_COMPLETED", "GATEWAY_ACK_RECEIVED", "GATEWAY_RESULT_RECEIVED"),
+                traces.stream().map(message -> message.getCommandTrace().getStage()).collect(java.util.stream.Collectors.toSet()));
+        assertTrue(traces.stream().allMatch(message -> message.getRobotId().equals(robot.id)
+                && message.getSessionId().equals(robot.session) && message.getCommandTrace().getObservedAtMs() > 0));
+        assertTrue(other.delivered.stream().noneMatch(Envelope::hasCommandTrace));
+    }
+
+    @Test
+    void diagnosticsAreOptInAndCannotBypassDeviceScope() throws Exception {
+        var owner = client("limited", "limited-test"); var robot = device("RB-001"); device("RB-002");
+        owner.snapshot();
+        owner.send(move("plain", robot.id)); robot.read(); robot.ack("plain", false);
+        owner.phase("plain", CommandPhase.COMMAND_PHASE_REJECTED);
+        assertTrue(owner.delivered.stream().noneMatch(Envelope::hasCommandTrace));
+        owner.send(Envelope.newBuilder().setProtocolVersion(1).setSubscribe(Subscribe.newBuilder()
+                .addRobotIds("RB-002").setIncludeDiagnostics(true)).build());
+        assertEquals("FORBIDDEN", owner.next(Envelope::hasError).getError().getCode());
+        owner.send(move("forbidden-trace", "RB-002"));
+        owner.phase("forbidden-trace", CommandPhase.COMMAND_PHASE_REJECTED);
+        assertTrue(owner.delivered.stream().noneMatch(Envelope::hasCommandTrace));
+    }
 }

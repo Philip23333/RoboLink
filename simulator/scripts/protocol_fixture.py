@@ -37,6 +37,14 @@ def fixtures():
         "control-auth-result": pb.Envelope(**{**common, "robot_id": "", "session_id": ""},
             control_auth_result=pb.ControlAuthResult(accepted=True, control_session_id="fixture-control-session",
                                                    allowed_robot_ids=["RB-001", "RB-002"])),
+        "command-trace": pb.Envelope(**common, command_trace=pb.CommandTrace(command_id="fixture-command",
+            stage="GATEWAY_ACK_RECEIVED", observed_at_ms=9007199254740993, wire_seq=55)),
+        "snapshot-diagnostics": pb.Envelope(**common, snapshot=pb.Snapshot(observed_at_ms=9007199254740993,
+            robots=[pb.RobotSnapshot(robot_id="RB-001", session_id="fixture-session", online=True,
+                latest_telemetry=pb.Telemetry(battery_percent=87, pose=pb.Pose(x_m=1.25, y_m=-2.5, yaw_rad=0.5),
+                    state=pb.ROBOT_STATE_IDLE, related_command_id="fixture-command"), telemetry_seq=55,
+                last_seen_at_ms=9007199254740993, remote_address="/127.0.0.1:45678", received_messages=123,
+                sent_messages=45, connected_at_ms=1000, last_heartbeat_at_ms=1200, telemetry_observed_at_ms=1300)])),
     }
 
 

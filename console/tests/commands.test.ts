@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Action, CommandPhase, Envelope } from '../src/generated/robolink';
 import { CommandBook, MessageBook } from '../src/commands';
+import { TraceBook } from '../src/traces';
 
 function status(phase: CommandPhase) { return Envelope.fromPartial({ protocolVersion: 1, robotId: 'RB-001',
   payload: { $case: 'commandStatus', value: { commandId: 'first', phase, reason: 'test' } } }); }
@@ -44,4 +45,25 @@ test('message history excludes credentials and coalesces telemetry', () => {
   for (let index = 0; index < 200; index++) book.add(status(CommandPhase.COMMAND_PHASE_SENT), 10, 'in');
   assert.equal(book.entries.length, 120);
   assert.ok(!JSON.stringify(book.entries).includes('never-log-this'));
+});
+
+test('trace sources require actual observations and missing stages stay missing', () => {
+  const book = new TraceBook();
+  book.observe(status(CommandPhase.COMMAND_PHASE_SENT), 'in');
+  assert.equal(book.entries.length, 0);
+  book.observe(Envelope.fromPartial({ protocolVersion: 1, robotId: 'RB-001', sessionId: 'actual-session',
+    payload: { $case: 'commandTrace', value: { commandId: 'first', stage: 'GATEWAY_TCP_WRITE_COMPLETED',
+      observedAtMs: 1234n, wireSeq: 5n } } }), 'in');
+  assert.equal(book.entries.length, 1); assert.equal(book.entries[0].source, 'gateway');
+  assert.equal(book.entries[0].at, 1234); assert.equal(book.entries[0].seq, '5');
+  assert.ok(!book.entries.some(event => event.source === 'device'));
+});
+test('trace history is bounded and duplicate polling cannot multiply events', () => {
+  const book = new TraceBook();
+  const event = { command_id: 'first', robot: 'RB-001', source: 'device' as const, stage: 'DEVICE_COMMAND_RECEIVED',
+    session: 'session', seq: '1', at: 1234, pid: 42 };
+  for (let index = 0; index < 500; index++) book.add(event);
+  assert.equal(book.entries.length, 1);
+  for (let index = 0; index < 1000; index++) book.add({ ...event, command_id: String(index) });
+  assert.equal(book.entries.length, 600);
 });

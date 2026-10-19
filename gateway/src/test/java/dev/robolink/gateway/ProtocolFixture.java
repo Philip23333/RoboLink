@@ -9,6 +9,9 @@ import dev.robolink.protocol.v1.RobotState;
 import dev.robolink.protocol.v1.Telemetry;
 import dev.robolink.protocol.v1.ControlAuthenticate;
 import dev.robolink.protocol.v1.ControlAuthResult;
+import dev.robolink.protocol.v1.CommandTrace;
+import dev.robolink.protocol.v1.Snapshot;
+import dev.robolink.protocol.v1.RobotSnapshot;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -46,7 +49,15 @@ public final class ProtocolFixture {
                         .setControllerId("fixture-operator").setCredential("public-fixture-not-a-secret")).build(),
                 "control-auth-result", base().clearRobotId().clearSessionId().setControlAuthResult(ControlAuthResult.newBuilder()
                         .setAccepted(true).setControlSessionId("fixture-control-session")
-                        .addAllowedRobotIds("RB-001").addAllowedRobotIds("RB-002")).build());
+                        .addAllowedRobotIds("RB-001").addAllowedRobotIds("RB-002")).build(),
+                "command-trace", base().setCommandTrace(CommandTrace.newBuilder().setCommandId("fixture-command")
+                        .setStage("GATEWAY_ACK_RECEIVED").setObservedAtMs(9007199254740993L).setWireSeq(55)).build(),
+                "snapshot-diagnostics", base().setSnapshot(Snapshot.newBuilder().setObservedAtMs(9007199254740993L)
+                        .addRobots(RobotSnapshot.newBuilder().setRobotId("RB-001").setSessionId("fixture-session").setOnline(true)
+                            .setLatestTelemetry(telemetry.toBuilder().setRelatedCommandId("fixture-command"))
+                            .setTelemetrySeq(55).setLastSeenAtMs(9007199254740993L).setRemoteAddress("/127.0.0.1:45678")
+                            .setReceivedMessages(123).setSentMessages(45).setConnectedAtMs(1000)
+                            .setLastHeartbeatAtMs(1200).setTelemetryObservedAtMs(1300))).build());
     }
 
     public static void main(String[] args) throws Exception {

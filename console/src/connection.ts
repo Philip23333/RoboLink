@@ -20,9 +20,18 @@ export class ControlConnection {
   private credentials?: { url: string; id: string; token: string };
   private stopped = true;
   private rateBuckets = new Map<number, number>();
+  private lastSnapshotRequest = 0;
   constructor(private change: (value: View) => void,
               private event?: (message: Envelope, bytes: number, direction: 'in' | 'out') => void) {
-    this.maintenance = setInterval(() => this.publish(), 500);
+    this.maintenance = setInterval(() => {
+      if (this.phase === 'ready' && Date.now() - this.lastSnapshotRequest > 2000) this.subscribe();
+      this.publish();
+    }, 500);
+  }
+  private subscribe() {
+    this.lastSnapshotRequest = Date.now();
+    this.send(Envelope.fromPartial({ protocolVersion: 1, payload: { $case: 'subscribe',
+      value: { robotIds: [], includeDiagnostics: true } } }));
   }
   private publish() {
     const second = Math.floor(Date.now() / 1000);
@@ -77,7 +86,7 @@ export class ControlConnection {
           }
           this.session = message.payload.value.controlSessionId;
           this.phase = 'synchronizing';
-          this.send(Envelope.fromPartial({ protocolVersion: 1, payload: { $case: 'subscribe', value: { robotIds: [] } } }));
+          this.subscribe();
         } else {
           if (!['synchronizing', 'ready'].includes(this.phase)) throw new Error();
           this.state.apply(message);

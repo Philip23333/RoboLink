@@ -4,10 +4,14 @@ import { ControlConnection, phaseLabel, type View } from './connection';
 import { deviceHealth } from './state';
 import { Action, Envelope } from './generated/robolink';
 import { CommandBook, MessageBook, actionNames, phaseNames, reasonText } from './commands';
+import { TraceBook } from './traces';
+import ProofPanel from './ProofPanel.vue';
 
 const view = ref<View>({ phase: 'disconnected', message: '', devices: [], rate: 0, session: '' });
 const commands = new CommandBook();
 const messages = new MessageBook();
+const traceBook = new TraceBook();
+const traceCommand = ref('');
 const revision = ref(0);
 const sessions = new Map<string, string>();
 const connection = new ControlConnection(value => {
@@ -20,6 +24,7 @@ const connection = new ControlConnection(value => {
 }, (message, bytes, direction) => {
   if (direction === 'in') commands.apply(message);
   messages.add(message, bytes, direction);
+  traceBook.observe(message, direction);
 });
 const endpoint = ref('ws://127.0.0.1:9001/control');
 const account = ref('operator');
@@ -46,6 +51,7 @@ const selectedId = ref('');
 const selected = computed(() => view.value.devices.find(device => device.id === selectedId.value) ?? view.value.devices[0]);
 const commandRows = computed(() => { revision.value; return [...commands.entries]; });
 const messageRows = computed(() => { revision.value; return [...messages.entries]; });
+const traceRows = computed(() => { revision.value; return [...traceBook.entries]; });
 const canMove = computed(() => { revision.value; return !!selected.value && connected.value
   && deviceHealth(selected.value, true) === '空闲' && !commands.pending(selected.value.id) && !commands.uncertain.has(selected.value.id); });
 const canStop = computed(() => { revision.value; return !!selected.value?.online && connected.value && !commands.pending(selected.value.id, true); });
@@ -115,6 +121,7 @@ onBeforeUnmount(() => connection.dispose());
             </div>
             <div class="detail-note"><span class="live-dot"></span> {{ connected ? '实时状态同步已启用' : '当前状态不可用于控制' }}<small>超过 3 秒未更新会标记为遥测陈旧 · 运动由设备本地限时结束</small></div>
           </section></div>
+        <ProofPanel :devices="view.devices" :connected="connected" :available="demoAvailable" :commands="commandRows" :traces="traceRows" v-model:selected-command="traceCommand" />
         <section class="panel map-panel"><div class="panel-heading"><div><h2>位置与朝向</h2><p>平面坐标 / 米 · 箭头指向设备朝向 · 未知位置不绘制</p></div><div class="map-tools"><button class="quiet" aria-label="缩小地图" @click="zoom = Math.max(.25, zoom / 1.5)">−</button><button class="quiet" @click="zoom = 1">重置视图</button><button class="quiet" aria-label="放大地图" @click="zoom = Math.min(3, zoom * 1.5)">＋</button></div></div>
           <svg class="robot-map" viewBox="0 0 600 450" role="img" aria-label="机器人位置地图"><defs><pattern id="grid" :width="32 * zoom" :height="32 * zoom" patternUnits="userSpaceOnUse" x="300" y="300"><path :d="`M ${32 * zoom} 0 L 0 0 0 ${32 * zoom}`" fill="none" stroke="#dde6da" stroke-width=".6" /></pattern></defs><rect width="600" height="450" fill="url(#grid)"/><line x1="0" y1="300" x2="600" y2="300" stroke="#b3c6ae"/><line x1="300" y1="0" x2="300" y2="450" stroke="#b3c6ae"/><text x="575" y="291" class="axis-label">X →</text><text x="310" y="20" class="axis-label">Y ↑</text><text x="307" y="317" class="axis-label">0</text>
             <g v-for="device in mapDevices" :key="device.id" :transform="poseTransform(device)" :opacity="health(device) === '离线' || !connected ? .35 : 1" class="map-device" :class="{ chosen: selected?.id === device.id }" :data-testid="`map-${device.id}`" tabindex="0" role="button" :aria-label="`选择 ${device.id}`" @click="selectedId = device.id" @keydown.enter="selectedId = device.id" @keydown.space.prevent="selectedId = device.id"><circle r="19"/><path d="M 13 0 L -7 -7 L -4 0 L -7 7 Z"/><text :transform="`rotate(${(device.telemetry?.pose?.yawRad ?? 0) * 180 / Math.PI})`" x="0" y="35" text-anchor="middle">{{ device.id }}</text></g>

@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "recorded_at_utc": "2026-10-19T18:36:24.872092+00:00",
+  "browser": "Playwright Chromium",
+  "stats": {
+    "startTime": "2026-10-19T18:29:14.142Z",
+    "duration": 28218.903,
+    "expected": 10,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "cases": [
+    "forward ACK/result and telemetry move only selected robot; turns and map selection",
+    "STOP interrupts a running motion and duplicate clicks cannot start a second motion",
+    "invalid parameters and offline targets cannot send motion",
+    "missing ACK and missing result are explicit timeouts; STOP recovers",
+    "browser disconnect marks pending UNKNOWN and never replays motion on reconnect",
+    "message fields decode without credentials; mobile control layout fits",
+    "real binary subscription, device selection and reload snapshot",
+    "bad credentials rejected and never written to browser storage",
+    "offline device differs from browser loss; gateway restart resynchronizes",
+    "mobile layout remains within viewport"
+  ],
+  "scope": "Real localhost Java gateway, Python devices and Vue browser; not hardware or performance test"
+}

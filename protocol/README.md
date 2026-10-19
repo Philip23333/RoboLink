@@ -1,6 +1,6 @@
 # RoboLink v1 协议约定
 
-唯一协议源：`robolink.proto`。包名 `robolink.v1`，应用协议版本字段为 `1`。已实现 TCP 设备接入、WebSocket 控制入口、基础校验与指令状态机；设备执行动作和设备本地去重仍待模拟器实现。
+唯一协议源：`robolink.proto`。包名 `robolink.v1`，应用协议版本字段为 `1`。已实现 TCP 设备接入、WebSocket 控制入口、基础校验与指令状态机、模拟设备动作与短期去重，并追加可选的实际链路观测。
 
 ## 帧边界
 
@@ -65,9 +65,9 @@ Register 和 ControlAuthenticate 的凭证不允许广播或写入日志；示�
 - 电量：0–100，枚举的 UNSPECIFIED 不能当作合法业务状态或动作。
 - MotionParameters 的速度与角速度是非负幅值；转向方向由 TURN_LEFT / TURN_RIGHT 决定。
 - 前进要求 speed_mps 与 duration_ms，角速度为 0；转向要求 angular_speed_rad_s 与 duration_ms，线速度为 0；STOP 不携带 motion。
-- 网关已限制线速度 0.5 m/s、角速度 1 rad/s、持续时间 1–3000 ms，速度必须为正；非有限浮点数、越界或不匹配参数拒绝。后续模拟器须执行相同限制，Protobuf 本身不会执行这些业务校验。
+- 网关和模拟器均限制线速度 0.5 m/s、角速度 1 rad/s、持续时间 1–3000 ms，速度必须为正；非有限浮点数、越界或不匹配参数拒绝。Protobuf 本身不会执行这些业务校验。
 - 成功写入连接、设备 ACK、设备执行完成是不同阶段。超时和断线不能证明动作没有发生。UNKNOWN / TIMEOUT 应向页面显示结果不确定。
-- command_id 为 1–64 位 ASCII 字母、数字、下划线或连字符，首位字母或数字，推荐每次新操作使用 UUID。同 ID 不同参数拒绝；网关已提供短期请求去重和忙碌限制。真正执行去重与 STOP 中断仍需设备实现。
+- command_id 为 1–64 位 ASCII 字母、数字、下划线或连字符，首位字母或数字，推荐每次新操作使用 UUID。同 ID 不同参数拒绝；网关提供短期请求去重和忙碌限制，模拟器提供执行去重与 STOP 中断。
 
 ## WebSocket 控制约定
 
@@ -87,7 +87,17 @@ ACK 默认从准入开始等 2 秒，包含本地排队；接受 ACK 后另等�
 
 一台设备最多一条运动和一条 STOP 等待处理。运动等待中可发送 STOP，其余运动拒绝；已知遥测不是 IDLE 时也拒绝新运动。已派发但结果不确定时保留该设备的不确定标记，允许 STOP，成功 STOP 或新设备会话可解除标记。标记和超时都不等于已经确认设备停止。
 
-同控制会话、同设备、同 command_id、同参数的重复请求只返回状态；不同参数或其他控制会话复用在途 / 已记录 ID 返回 Error COMMAND_ID_IN_USE。终态默认保留 60 秒，未完成加记录最多 1024 条；不为新请求提前逐出未过期记录。期限届满或进程重启后不承诺去重，设备执行去重将在下一步加入。
+同控制会话、同设备、同 command_id、同参数的重复请求只返回状态；不同参数或其他控制会话复用在途 / 已记录 ID 返回 Error COMMAND_ID_IN_USE。终态默认保留 60 秒，未完成加记录最多 1024 条；不为新请求提前逐出未过期记录。期限届满或进程重启后不承诺去重，模拟器另有独立的有界短期执行记录。
+
+## 连接与指令观测
+
+RobotSnapshot 的 remote_address、connected_at_ms、received_messages、sent_messages、last_heartbeat_at_ms 均由网关从真实设备 Channel 与事件采集。接收计数包含成功注册和通过会话/序号校验的设备消息；发送计数只在本地 TCP 写操作成功回调时增加，不代表对端读取或设备执行。每次新设备会话重新计数。telemetry_observed_at_ms 单独记录最后遥测时间，心跳不能把旧遥测变成新数据。
+
+Subscribe.include_diagnostics 默认为 false，显式开启后，指令所有者可收到 CommandTrace；沿用设备权限，不广播给其他控制会话。四个网关 stage 为 GATEWAY_WS_RECEIVED（处理获准控制请求）、GATEWAY_TCP_WRITE_COMPLETED（成功本地写操作）、GATEWAY_ACK_RECEIVED、GATEWAY_RESULT_RECEIVED。Envelope 保留设备 ID / 会话，wire_seq 为相应实际线路消息的 seq；WebSocket 请求尚无设备序号时为 0。observed_at_ms 在对应处理点采集，不能由 CREATED / SENT 等状态拼造。
+
+Telemetry.related_command_id 由模拟器附上最后接受的指令编号，便于关联返回遥测；它不是身份、去重或动作完成的授权依据，IDLE 也不能代替 CommandResult。拒绝或中断的指令不保证具有后续关联遥测。
+
+机器人进程 PID 不通过设备协议作为可信身份。独立进程的 PID 与设备日志由本地监督程序采集，并与实际启动句柄核对；网页自身记录浏览器事件，三种来源分开展示。进程时钟与异步回调顺序不用于推算严格跨进程延迟。
 
 每个控制端输出最多一条写操作在途，可靠队列 64 条、遥测按设备保留最新值且最多 64 项。队列满或输出持续阻塞 3 秒时断开，重新连接后需重新认证、订阅与同步快照，当前不支持跨控制连接恢复旧指令订阅。参考 [Netty 写缓冲水位](https://netty.io/4.1/api/io/netty/channel/WriteBufferWaterMark.html)，当前使用 32 / 64 KiB 水位，并有上述应用层队列限制。
 

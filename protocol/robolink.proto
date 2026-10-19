@@ -30,6 +30,7 @@ message Envelope {
     CommandStatus command_status = 22;
     ControlAuthenticate control_authenticate = 23;
     ControlAuthResult control_auth_result = 24;
+    CommandTrace command_trace = 25;
   }
 }
 
@@ -79,11 +80,13 @@ message Telemetry {
   uint32 battery_percent = 1;
   Pose pose = 2;
   RobotState state = 3;
+  string related_command_id = 4; // Last accepted command; correlation, not proof of execution.
 }
 
 // Empty robot_ids means all devices allowed by the connection's access scope.
 message Subscribe {
   repeated string robot_ids = 1;
+  bool include_diagnostics = 2; // Opt-in gateway observations; same access scope as subscription.
 }
 
 message RobotSnapshot {
@@ -93,6 +96,19 @@ message RobotSnapshot {
   Telemetry latest_telemetry = 4; // Absent when no telemetry has been received.
   uint64 telemetry_seq = 5;
   uint64 last_seen_at_ms = 6; // Gateway observation time.
+  string remote_address = 7;
+  uint64 received_messages = 8; // Accepted device messages, including registration.
+  uint64 sent_messages = 9; // Successful local TCP writes; not device receipt acknowledgements.
+  uint64 connected_at_ms = 10;
+  uint64 last_heartbeat_at_ms = 11;
+  uint64 telemetry_observed_at_ms = 12;
+}
+
+message CommandTrace {
+  string command_id = 1;
+  string stage = 2; // Closed gateway stage names documented in protocol/README.md.
+  uint64 observed_at_ms = 3;
+  uint64 wire_seq = 4;
 }
 
 message Snapshot {

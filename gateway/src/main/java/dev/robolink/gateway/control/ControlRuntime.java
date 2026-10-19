@@ -44,6 +44,7 @@ public final class ControlRuntime implements SessionRegistry.Observer, AutoClose
         private boolean inFlight;
         private boolean closed;
         private boolean closing;
+        private boolean diagnostics;
         private long blockedSince;
         private Peer(ControlSink sink) { this.sink = sink; }
     }
@@ -99,6 +100,7 @@ public final class ControlRuntime implements SessionRegistry.Observer, AutoClose
         var selected = request.getRobotIdsCount() == 0 ? peer.allowed : new HashSet<>(request.getRobotIdsList());
         if (!peer.allowed.containsAll(selected)) { error(peer, "", "FORBIDDEN"); return; }
         peer.subscribed = Set.copyOf(selected);
+        peer.diagnostics = request.getIncludeDiagnostics();
         peer.telemetry.clear();
         var snapshot = Snapshot.newBuilder().setObservedAtMs(System.currentTimeMillis());
         for (String robot : new TreeSet<>(selected)) {
@@ -148,6 +150,7 @@ public final class ControlRuntime implements SessionRegistry.Observer, AutoClose
         pending.put(id, command);
         command.latest = status(request, device.sessionId(), CommandPhase.COMMAND_PHASE_CREATED, "CREATED");
         reliable(peer, command.latest);
+        trace(peer, device, id, "GATEWAY_WS_RECEIVED", 0, System.currentTimeMillis());
         // A full controller mailbox may already have disconnected the owner and removed this command.
         if (pending.get(id) != command) { return; }
         command.deadline = executor.schedule(() -> finish(command, CommandPhase.COMMAND_PHASE_ACK_TIMEOUT, "ACK_TIMEOUT", true),
@@ -164,14 +167,19 @@ public final class ControlRuntime implements SessionRegistry.Observer, AutoClose
                         command.attempted = true;
                         var routed = base().setRobotId(device.robotId()).setSessionId(device.sessionId())
                             .setSeq(device.nextGatewaySeq()).setCommandRequest(request.getCommandRequest()).build();
-                    device.channel().writeAndFlush(routed).addListener(future -> post(() -> {
+                    device.channel().writeAndFlush(routed).addListener(future -> {
+                        long writtenAt = System.currentTimeMillis();
+                        if (future.isSuccess()) { device.recordedWrite(); }
+                        post(() -> {
+                        if (future.isSuccess()) { trace(peer, device, id, "GATEWAY_TCP_WRITE_COMPLETED", routed.getSeq(), writtenAt); }
                         if (pending.get(id) != command) { return; }
                         if (!future.isSuccess()) { finish(command, CommandPhase.COMMAND_PHASE_UNKNOWN, "SEND_FAILED", true); }
                         else if (command.latest.getCommandStatus().getPhase() == CommandPhase.COMMAND_PHASE_CREATED) {
                             command.latest = status(request, device.sessionId(), CommandPhase.COMMAND_PHASE_SENT, "SENT");
                             reliable(peer, command.latest);
                         }
-                        }, device.channel()::close));
+                        }, device.channel()::close);
+                    });
                     });
                     if (!dispatched) {
                         post(() -> finish(command, CommandPhase.COMMAND_PHASE_UNKNOWN, "SESSION_CHANGED", true), device.channel()::close);
@@ -255,6 +263,7 @@ public final class ControlRuntime implements SessionRegistry.Observer, AutoClose
     @Override
     public void received(DeviceSession session, Envelope message) {
         if (!message.hasTelemetry() && !message.hasCommandAck() && !message.hasCommandResult()) { return; }
+        long receivedAt = System.currentTimeMillis();
         post(() -> {
             if (sessions.find(session.robotId()).orElse(null) != session) { return; }
             if (message.hasTelemetry()) {
@@ -272,6 +281,7 @@ public final class ControlRuntime implements SessionRegistry.Observer, AutoClose
             var phase = command.latest.getCommandStatus().getPhase();
             if (message.hasCommandAck()) {
                 if (phase == CommandPhase.COMMAND_PHASE_ACKED) { return; }
+                trace(command.owner, session, id, "GATEWAY_ACK_RECEIVED", message.getSeq(), receivedAt);
                 reliable(command.owner, message);
                 if (!message.getCommandAck().getAccepted()) { finish(command, CommandPhase.COMMAND_PHASE_REJECTED, "DEVICE_REJECTED", false); return; }
                 command.deadline.cancel(false);
@@ -282,6 +292,7 @@ public final class ControlRuntime implements SessionRegistry.Observer, AutoClose
                             config.resultTimeoutMs(), TimeUnit.MILLISECONDS);
                 }
             } else {
+                trace(command.owner, session, id, "GATEWAY_RESULT_RECEIVED", message.getSeq(), receivedAt);
                 if (phase != CommandPhase.COMMAND_PHASE_ACKED) { finish(command, CommandPhase.COMMAND_PHASE_UNKNOWN, "RESULT_BEFORE_ACK", true); return; }
                 var outcome = message.getCommandResult().getOutcome();
                 if (outcome == CommandOutcome.COMMAND_OUTCOME_UNSPECIFIED || outcome == CommandOutcome.UNRECOGNIZED) {
@@ -299,6 +310,13 @@ public final class ControlRuntime implements SessionRegistry.Observer, AutoClose
                 finish(command, terminal, "DEVICE_RESULT", false);
             }
         }, session.channel()::close);
+    }
+
+    private void trace(Peer peer, DeviceSession device, String id, String stage, long seq, long observedAt) {
+        if (!peer.diagnostics || peer.closed || !peer.allowed.contains(device.robotId())) { return; }
+        reliable(peer, base().setRobotId(device.robotId()).setSessionId(device.sessionId())
+                .setCommandTrace(CommandTrace.newBuilder().setCommandId(id).setStage(stage)
+                        .setWireSeq(seq).setObservedAtMs(observedAt)).build());
     }
 
     private void reliable(Peer peer, Envelope message) {

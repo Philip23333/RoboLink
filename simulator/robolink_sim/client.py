@@ -12,7 +12,7 @@ from .recovery import FaultPlan, retry_delay
 
 
 class RobotClient:
-    def __init__(self, robot_id, credential, model=None, telemetry_hz=10.0, faults=None):
+    def __init__(self, robot_id, credential, model=None, telemetry_hz=10.0, faults=None, observer=None):
         if (not IDENTIFIER.fullmatch(robot_id) or not credential or len(credential.encode()) > 1024
                 or not math.isfinite(telemetry_hz) or not 0 < telemetry_hz <= 100):
             raise ValueError("Invalid device configuration")
@@ -28,6 +28,15 @@ class RobotClient:
         self.connections = 0
         self.state = "disconnected"
         self._writer_stream = None
+        self.observer = observer
+        self.received_messages = self.sent_messages = 0
+        self.related_command_id = ""
+
+    def _observe(self, stage, command_id="", seq=0):
+        if self.observer:
+            self.observer({"stage": stage, "command_id": command_id, "seq": seq,
+                           "robot_id": self.robot_id, "session_id": self.session_id,
+                           "observed_at_ms": time.time_ns() // 1_000_000})
 
     def disconnect(self):
         """Fault/demo hook: stop locally before closing the live transport."""
@@ -63,6 +72,8 @@ class RobotClient:
         self.wake = asyncio.Event()
         self.latest = None
         self.heartbeat_pending = None
+        self.final_telemetry_traced = set()
+        self.related_command_id = ""
         tasks = []
         writer = None
         try:
@@ -72,7 +83,9 @@ class RobotClient:
                                        register=pb.Register(credential=self._credential))
             writer.write(frame(registration))
             await asyncio.wait_for(writer.drain(), 2)
+            self.sent_messages += 1
             response = await asyncio.wait_for(read_frame(reader), 5)
+            self.received_messages += 1
             result = response.register_result
             if (response.WhichOneof("payload") != "register_result" or not result.accepted
                     or response.robot_id != self.robot_id or not response.session_id
@@ -87,6 +100,7 @@ class RobotClient:
             self.connected_at = time.monotonic()
             self.connections += 1
             self.state = "online"
+            self._observe("DEVICE_REGISTERED", seq=response.seq)
             tasks = [asyncio.create_task(self._reader(reader)),
                      asyncio.create_task(self._writer(writer)),
                      asyncio.create_task(self._ticker())]
@@ -124,6 +138,7 @@ class RobotClient:
     async def _reader(self, reader):
         while True:
             message = await read_frame(reader)
+            self.received_messages += 1
             if message.robot_id != self.robot_id or message.session_id != self.session_id:
                 raise ConnectionError("Gateway identity mismatch")
             if message.seq <= self.gateway_seq:
@@ -135,7 +150,10 @@ class RobotClient:
                     self.heartbeat_pending = None
                     self.wake.set()
             elif kind == "command_request":
+                self._observe("DEVICE_COMMAND_RECEIVED", message.command_request.command_id, message.seq)
                 for payload in self.model.handle(message.command_request, time.monotonic()):
+                    if isinstance(payload, pb.CommandAck) and payload.accepted:
+                        self.related_command_id = payload.command_id
                     self._enqueue(payload)
                 self._publish()
             else:
@@ -143,6 +161,7 @@ class RobotClient:
 
     def _publish(self):
         self.latest = self.model.telemetry()
+        self.latest.related_command_id = self.related_command_id
         self.wake.set()
 
     async def _ticker(self):
@@ -155,8 +174,11 @@ class RobotClient:
                 raise ConnectionError("Injected device disconnect")
             if self.heartbeat_pending and now - self.heartbeat_pending[1] >= self.heartbeat_timeout:
                 raise ConnectionError("Heartbeat response timeout")
-            for payload in self.model.advance(now):
+            outputs = self.model.advance(now)
+            for payload in outputs:
                 self._enqueue(payload)
+            if outputs:
+                self._publish()
             if now >= next_telemetry:
                 self._publish()
                 next_telemetry = now + 1 / self.telemetry_hz
@@ -192,6 +214,17 @@ class RobotClient:
                 self.next_heartbeat = now + self.heartbeat_interval
             writer.write(frame(message))
             await asyncio.wait_for(writer.drain(), min(2.0, self.heartbeat_timeout))
+            self.sent_messages += 1
+            if field == "command_ack":
+                self._observe("DEVICE_ACK_WRITE_COMPLETED", payload.command_id, self.seq)
+            elif field == "command_result":
+                self._observe("DEVICE_RESULT_WRITE_COMPLETED", payload.command_id, self.seq)
             if field == "telemetry":
                 self.sent_telemetry += 1
+                if (payload.related_command_id and payload.state == pb.ROBOT_STATE_IDLE
+                        and payload.related_command_id not in self.final_telemetry_traced):
+                    self.final_telemetry_traced.add(payload.related_command_id)
+                    if len(self.final_telemetry_traced) > 256:
+                        self.final_telemetry_traced = {payload.related_command_id}
+                    self._observe("DEVICE_FINAL_TELEMETRY_WRITE_COMPLETED", payload.related_command_id, self.seq)
 

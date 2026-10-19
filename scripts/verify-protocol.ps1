@@ -41,7 +41,7 @@ foreach ($encoder in @('java', 'python', 'typescript')) {
     Invoke-Checked $python @($pythonFixture, 'verify', $source)
     Invoke-Checked $tsx @($tsFixture, 'verify', $source)
     foreach ($decoder in @('java', 'python', 'typescript')) {
-        $pairs += [ordered]@{ encoder = $encoder; decoder = $decoder; fixtures = 4; status = 'PASS' }
+        $pairs += [ordered]@{ encoder = $encoder; decoder = $decoder; fixtures = 6; status = 'PASS' }
     }
 }
 $report = [ordered]@{
@@ -50,12 +50,12 @@ $report = [ordered]@{
     duration_seconds = [math]::Round(([DateTimeOffset]::UtcNow - $started).TotalSeconds, 2)
     clean_generation = [bool]$Clean
     checks = @('Java build', 'TypeScript typecheck', 'uint64 precision', 'oneof branches')
-    fixture_names = @('telemetry', 'command', 'control-auth', 'control-auth-result')
+    fixture_names = @('telemetry', 'command', 'control-auth', 'control-auth-result', 'command-trace', 'snapshot-diagnostics')
     seq = '18446744073709551615'
     timestamp_ms = '9007199254740993'
     pairs = $pairs
     scope = 'serialization only; no TCP, WebSocket, simulator motion or Vue UI'
 }
 $report | ConvertTo-Json -Depth 5 | Set-Content "$fixtureRoot/report.json" -Encoding utf8
-Write-Host 'PASS: 9 encoder/decoder pairs x 4 fixtures = 36 message comparisons.'
+Write-Host 'PASS: 9 encoder/decoder pairs x 6 fixtures = 54 message comparisons.'
 Write-Host "Report: $fixtureRoot/report.json"

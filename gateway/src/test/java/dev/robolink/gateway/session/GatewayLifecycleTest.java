@@ -56,6 +56,12 @@ class GatewayLifecycleTest {
             assertEquals(2, readReply(socket).getHeartbeatReply().getAcknowledgedSeq());
             assertEquals(87, gateway.sessions().onlineSnapshots().getFirst().getLatestTelemetry().getBatteryPercent());
             assertEquals(1, gateway.sessions().onlineCount());
+            var observed = gateway.sessions().onlineSnapshots().getFirst();
+            assertTrue(observed.getRemoteAddress().contains(Integer.toString(socket.getLocalPort())));
+            assertEquals(3, observed.getReceivedMessages());
+            await(() -> gateway.sessions().onlineSnapshots().getFirst().getSentMessages() == 2);
+            assertTrue(observed.getLastHeartbeatAtMs() > 0);
+            assertTrue(observed.getTelemetryObservedAtMs() > 0);
         }
         await(() -> gateway.sessions().onlineCount() == 0);
     }

@@ -45,6 +45,16 @@ const fixtures: Record<string, Envelope> = {
       accepted: true, reason: "", controlSessionId: "fixture-control-session", allowedRobotIds: ["RB-001", "RB-002"],
     } },
   }),
+  "command-trace": Envelope.create({ ...base, payload: { $case: "commandTrace", value: {
+    commandId: "fixture-command", stage: "GATEWAY_ACK_RECEIVED", observedAtMs: 9007199254740993n, wireSeq: 55n,
+  } } }),
+  "snapshot-diagnostics": Envelope.create({ ...base, payload: { $case: "snapshot", value: {
+    observedAtMs: 9007199254740993n, robots: [{ robotId: "RB-001", sessionId: "fixture-session", online: true,
+      latestTelemetry: { batteryPercent: 87, pose: { xM: 1.25, yM: -2.5, yawRad: .5 },
+        state: RobotState.ROBOT_STATE_IDLE, relatedCommandId: "fixture-command" }, telemetrySeq: 55n,
+      lastSeenAtMs: 9007199254740993n, remoteAddress: "/127.0.0.1:45678", receivedMessages: 123n,
+      sentMessages: 45n, connectedAtMs: 1000n, lastHeartbeatAtMs: 1200n, telemetryObservedAtMs: 1300n }],
+  } } }),
 };
 
 const [mode, directory] = process.argv.slice(2);
