@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "recorded_at_utc": "2026-10-19T16:54:59.9685564+00:00",
+  "command": "./scripts/verify-simulator.ps1",
+  "total_java_tests": 83,
+  "suites": [
+    {
+      "name": "dev.robolink.gateway.control.ControlRuntimeTest",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "dev.robolink.gateway.control.WebSocketBridgeTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "dev.robolink.gateway.session.DeviceSessionTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "dev.robolink.gateway.session.GatewayLifecycleTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "dev.robolink.gateway.transport.TcpEnvelopeCodecTest",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "name": "dev.robolink.gateway.transport.TcpLoopbackTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "scope": "Existing Java regression in step 05; no Java source or protocol changes"
+}

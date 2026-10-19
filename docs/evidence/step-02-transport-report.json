@@ -1,0 +1,62 @@
+{
+  "status": "PASS",
+  "started_at_utc": "2026-10-19T13:16:49.3661075+00:00",
+  "duration_seconds": 7.89,
+  "clean_build": true,
+  "total_tests": 23,
+  "suites": [
+    {
+      "name": "TcpEnvelopeCodecTest",
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        "decodesCompleteMessage",
+        "doesNotDeliverValidMessageAfterBadEnvelopeInSameRead",
+        "rejectsUnsupportedVersion",
+        "doesNotDeliverValidMessageAfterBadProtobufInSameRead",
+        "closingMidFrameDiscardsAndReleasesPartialData",
+        "seededRandomSplitsAndCoalescingPreserveAllMessages",
+        "outboundHasFourByteBigEndianBodyLength",
+        "acceptsOneByteAtATime",
+        "treatsHighBitLengthsAsUnsignedAndRejectsThem",
+        "rejectsZeroLength",
+        "retainsPartialNextMessageAfterACompleteOne",
+        "rejectsMalformedProtobuf",
+        "rejectsOversizedOutboundMessageWithoutWritingBytes",
+        "decodesThreeCoalescedMessagesInOrder",
+        "acceptsExact64KiBBodyInBothDirections",
+        "rejectsInvalidOutboundEnvelopeWithoutWritingBytes",
+        "connectionsDoNotSharePartialFrames",
+        "rejectsRawOutboundBytesAndReleasesThem",
+        "waitsForEveryPossibleTwoChunkSplit",
+        "rejectsOversizedLengthBeforeBodyArrives",
+        "rejectsMissingPayload"
+      ]
+    },
+    {
+      "name": "TcpLoopbackTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        "receivesThreeEnvelopesAndRepliesWithProperFrames",
+        "oversizedHeaderClosesPeerWithoutWaitingForBody"
+      ]
+    }
+  ],
+  "random_streams": {
+    "max_chunk_bytes": 300,
+    "seeds": 20,
+    "messages_per_seed": 100,
+    "min_chunk_bytes": 1
+  },
+  "limits": {
+    "header_bytes": 4,
+    "max_frame_bytes": 65540,
+    "max_body_bytes": 65536
+  },
+  "scope": "Netty codec and localhost TCP test fixture; no device registration, heartbeat, routing, WebSocket or UI"
+}

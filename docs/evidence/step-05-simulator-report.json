@@ -1,0 +1,70 @@
+{
+  "status": "PASS",
+  "recorded_at_utc": "2026-10-19T16:50:23.063738+00:00",
+  "duration_seconds": 4.422,
+  "python": "3.12.0",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "logical_cpu_count": 12,
+  "unit_and_local_network_tests": 24,
+  "cases": [
+    "test_client.ClientTests.test_heartbeat_silence_stops_motion_even_while_telemetry_flows",
+    "test_client.ClientTests.test_low_telemetry_rate_does_not_delay_motion_completion",
+    "test_client.ClientTests.test_registration_rejection_exits_without_online_state",
+    "test_client.ClientTests.test_serial_writer_sequences_and_real_motion",
+    "test_client.ClientTests.test_tcp_eof_stops_active_motion",
+    "test_client.ClientTests.test_wrong_gateway_session_closes_device",
+    "test_client.ConfigTests.test_config_accepts_bom_and_rejects_ambiguous_properties",
+    "test_client.FramingTests.test_invalid_size_payload_and_eof",
+    "test_client.FramingTests.test_split_header_body_and_consecutive_frames",
+    "test_client.FramingTests.test_unknown_version_or_empty_payload_rejected",
+    "test_model.ModelTests.test_battery_and_yaw_are_bounded",
+    "test_model.ModelTests.test_busy_command_rejected_and_remembered",
+    "test_model.ModelTests.test_capacity_stop_still_stops_locally_without_untracked_execution",
+    "test_model.ModelTests.test_devices_have_independent_state",
+    "test_model.ModelTests.test_disconnect_freezes_pose_and_does_not_resume",
+    "test_model.ModelTests.test_duplicate_running_and_completed_do_not_restart",
+    "test_model.ModelTests.test_elapsed_time_and_late_tick_cannot_overshoot",
+    "test_model.ModelTests.test_history_capacity_does_not_evict_unexpired_records",
+    "test_model.ModelTests.test_motion_uses_heading_and_turn_sign",
+    "test_model.ModelTests.test_parameter_boundaries_rechecked_at_device",
+    "test_model.ModelTests.test_running_record_cannot_expire_before_completion",
+    "test_model.ModelTests.test_same_id_with_different_parameters_rejected",
+    "test_model.ModelTests.test_stop_ack_interrupt_and_stop_result_are_distinct",
+    "test_model.ModelTests.test_stop_when_idle_succeeds"
+  ],
+  "integration": {
+    "status": "PASS",
+    "duration_seconds": 2.938,
+    "robot_count": 3,
+    "configured_telemetry_hz": 10,
+    "observations": {
+      "forward_distance_m": 0.08,
+      "turn_net_yaw_rad": 0.1,
+      "stop_distance_m": 0.025,
+      "received_telemetry_counts": {
+        "RB-002": 15,
+        "RB-001": 14,
+        "RB-003": 15
+      },
+      "device_sent_telemetry_counts": {
+        "RB-001": 15,
+        "RB-002": 16,
+        "RB-003": 16
+      },
+      "cli_three_robot_control": "PASS"
+    },
+    "checks": [
+      "actual Java main and Python TCP devices",
+      "authenticated binary WebSocket subscription",
+      "three independent devices",
+      "forward ACK/result/telemetry",
+      "left and right turn",
+      "duplicate controller request replay",
+      "STOP interrupts active command",
+      "invalid parameters rejected",
+      "CLI starts three devices and executes command"
+    ],
+    "cleanup": "temporary Java/CLI processes, device tasks, sockets and credential files removed",
+    "scope": "localhost smoke test, not throughput benchmark; no Vue UI, physical robot or automatic reconnect"
+  }
+}

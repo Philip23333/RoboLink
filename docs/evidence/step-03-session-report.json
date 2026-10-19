@@ -1,0 +1,59 @@
+{
+  "status": "PASS",
+  "started_at_utc": "2026-10-19T13:31:00.3615288+00:00",
+  "clean_build": true,
+  "duration_seconds": 11.13,
+  "new_tests": 31,
+  "suites": [
+    {
+      "name": "DeviceSessionTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        "invalidTelemetryClosesWithoutPersistingIt",
+        "registrationBindsIdentityAndDoesNotForwardCredential",
+        "spoofedSessionIdClosesConnection",
+        "preRegistrationIdleEventDoesNotReplaceAbsoluteRegistrationDeadline",
+        "repeatedRegistrationOnSameConnectionIsRejected",
+        "telemetryBeforeRegistrationClosesConnection",
+        "replacementUsesFreshSessionAndResetsSequence",
+        "delayedOldCleanupCannotRemoveNewSessionOrWriteOldTelemetry",
+        "deviceCannotSendServerOnlyMessageTypes",
+        "telemetryStoresLatestPoseAndHeartbeatPreservesIt",
+        "spoofedRobotIdentityClosesAndRemovesSession",
+        "badCredentialDoesNotReplaceExistingConnection",
+        "registrationDeadlineIsNotExtendedByPartialBytes",
+        "registrationCannotSupplyOldSessionId",
+        "heartbeatEchoesDeviceSequenceInAcknowledgement",
+        "anotherDevicesCredentialCannotAuthenticate",
+        "disconnectRemovesCurrentSession",
+        "idleEventClosesRegisteredConnectionAndCleansIndex",
+        "unknownDeviceAndMalformedIdAreRejected",
+        "duplicateAndOlderSequenceDoNotUpdateStateOrLiveness",
+        "successfulRegistrationCancelsRegistrationDeadline",
+        "unsignedSequencesCrossSignedLongBoundaryWithoutWrapping"
+      ]
+    },
+    {
+      "name": "GatewayLifecycleTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        "failedAuthenticationCannotEvictOnlineDevice",
+        "failedBindReleasesResourcesAndCannotRestartFailedInstance",
+        "shutdownClosesRegisteredAndUnregisteredConnections",
+        "incompleteRegistrationIsClosedAtDeadline",
+        "authenticatedReplacementClosesOldSocketWithoutLosingNewSession",
+        "realRegistrationTelemetryHeartbeatAndDisconnect",
+        "codecFailureAlsoCleansAuthenticatedSession",
+        "silentRegisteredDeviceTimesOutAndIsRemoved",
+        "acceptedHeartbeatsKeepDeviceAlivePastIdleTimeout"
+      ]
+    }
+  ],
+  "scope": "Device authentication, session replacement, liveness and actual TCP server lifecycle; no command routing or UI"
+}

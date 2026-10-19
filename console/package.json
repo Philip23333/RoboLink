@@ -1,0 +1,20 @@
+{
+  "name": "@robolink/console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "protocol:verify": "tsx scripts/protocol-fixture.ts"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "ts-proto": "2.18.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

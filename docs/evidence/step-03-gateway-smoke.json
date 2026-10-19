@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "duration_seconds": 0.5,
+  "checks": [
+    "actual Java main startup",
+    "local credential file",
+    "Python TCP registration",
+    "telemetry then heartbeat acknowledgement",
+    "identity mismatch EOF",
+    "bad credential rejection"
+  ],
+  "listener": "127.0.0.1:ephemeral",
+  "cleanup": "test Java process exited and temporary credential file removed",
+  "scope": "startup and protocol probe; no full simulator or motion; graceful shutdown covered separately by JUnit"
+}

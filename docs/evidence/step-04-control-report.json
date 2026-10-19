@@ -1,0 +1,69 @@
+{
+  "status": "PASS",
+  "started_at_utc": "2026-10-19T16:30:43.8573544+00:00",
+  "clean_build": true,
+  "duration_seconds": 17.99,
+  "new_tests": 29,
+  "total_java_tests": 83,
+  "suites": [
+    {
+      "name": "dev.robolink.gateway.control.ControlRuntimeTest",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        "deviceRejectionAndFailureRemainDistinct",
+        "controllerDisconnectDoesNotTransferCommandToAnotherClient",
+        "resultBeforeAckIsUnknownInsteadOfSuccess",
+        "expiredHistoryReleasesCapacityAndDoesNotClaimPermanentDeduplication",
+        "sameIdReplaysStateWithoutExecutingAgainAndConflictingReuseIsRejected",
+        "deviceReplacementMakesOldCommandUnknownAndNeverReplaysIt",
+        "ackTimeoutIsTerminalAndNewMotionRequiresStopOrReconnect",
+        "snapshotAndTelemetryAreScopedAndOfflineEventsArePublished",
+        "reliableQueueOverflowDisconnectsInsteadOfDroppingResults",
+        "pendingAndHistoryCapacityDoNotEvictUnexpiredDeduplication",
+        "stalledInFlightWriteIsDisconnected",
+        "resultTimeoutIsSeparateFromAckTimeout",
+        "invalidActionParametersNeverReachDevice",
+        "ackFromAnotherRobotCannotCompleteCommand",
+        "stopMayInterruptBusyMotionButSecondMotionIsRejected",
+        "offlineAndOutOfScopeDevicesAreRejectedBeforeDispatch",
+        "routesCommandAndOnlyOwnerReceivesAckAndSuccessfulResult",
+        "nonIdleTelemetryBlocksNewMotionButAllowsStop",
+        "slowConsumerTelemetryCoalescesToLatestValue",
+        "routingMetadataCannotTurnAValidSizeRequestIntoAnOversizedDeviceFrame"
+      ]
+    },
+    {
+      "name": "dev.robolink.gateway.control.WebSocketBridgeTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "cases": [
+        "originAndQueryStringAreRejectedBeforeUpgrade",
+        "badCredentialsAreDeniedAndPreAuthenticationMessagesCannotSubscribe",
+        "authenticationDeadlineClosesSilentController",
+        "gatewayShutdownClosesAuthenticatedWebSocket",
+        "incompleteHttpHandshakeCannotHoldAControlConnectionForever",
+        "realWebSocketToTcpToAckAndResultIsPrivateAndTelemetryIsSubscribed",
+        "aggregateMessageLimitAppliesAcrossFragments",
+        "textMalformedProtobufAndUnsupportedVersionCloseConnection",
+        "fragmentedBinaryAuthenticationWorksWithoutTcpLengthHeader"
+      ]
+    }
+  ],
+  "limits": {
+    "reliable_queue_per_client": 64,
+    "stalled_write_timeout_ms": 3000,
+    "max_ws_message_bytes": 65536,
+    "telemetry_slots_per_client": 64,
+    "history_ttl_ms": 60000,
+    "max_pending_plus_history": 1024,
+    "max_clients": 32,
+    "control_task_queue": 8192,
+    "max_pending": 256
+  },
+  "scope": "Authenticated binary WebSocket/TCP bridge, command state machine and bounded output; no physical robot, motion simulation or Vue UI"
+}

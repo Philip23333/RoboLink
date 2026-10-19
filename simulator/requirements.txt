@@ -1,0 +1,2 @@
+# protoc 33.5 generated Python code uses the 6.33.x runtime API.
+protobuf==6.33.5

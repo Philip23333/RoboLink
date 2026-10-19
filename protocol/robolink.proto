@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package robolink.v1;
+
+option java_package = "dev.robolink.protocol.v1";
+option java_multiple_files = true;
+option java_outer_classname = "RoboLinkProtocol";
+
+// Shared application message. TCP length headers are outside this message.
+message Envelope {
+  uint32 protocol_version = 1;
+  string robot_id = 2;
+  string session_id = 3;
+  uint64 seq = 4;
+  uint64 timestamp_ms = 5;
+
+  oneof payload {
+    Register register = 10;
+    RegisterResult register_result = 11;
+    Heartbeat heartbeat = 12;
+    HeartbeatReply heartbeat_reply = 13;
+    Telemetry telemetry = 14;
+    Subscribe subscribe = 15;
+    Snapshot snapshot = 16;
+    DeviceStatusChanged device_status_changed = 17;
+    CommandRequest command_request = 18;
+    CommandAck command_ack = 19;
+    CommandResult command_result = 20;
+    Error error = 21;
+    CommandStatus command_status = 22;
+    ControlAuthenticate control_authenticate = 23;
+    ControlAuthResult control_auth_result = 24;
+  }
+}
+
+message ControlAuthenticate {
+  string controller_id = 1;
+  string credential = 2;
+}
+
+message ControlAuthResult {
+  bool accepted = 1;
+  string reason = 2;
+  string control_session_id = 3;
+  repeated string allowed_robot_ids = 4;
+}
+
+message Register {
+  string credential = 1; // Development secret: never log this payload verbatim.
+}
+
+message RegisterResult {
+  bool accepted = 1;
+  string reason = 2;
+  string assigned_session_id = 3;
+  uint32 heartbeat_interval_ms = 4;
+  uint32 heartbeat_timeout_ms = 5;
+}
+
+message Heartbeat {}
+message HeartbeatReply {
+  uint64 acknowledged_seq = 1;
+}
+
+enum RobotState {
+  ROBOT_STATE_UNSPECIFIED = 0;
+  ROBOT_STATE_IDLE = 1;
+  ROBOT_STATE_MOVING = 2;
+  ROBOT_STATE_ERROR = 3;
+}
+
+message Pose {
+  double x_m = 1;
+  double y_m = 2;
+  double yaw_rad = 3;
+}
+
+message Telemetry {
+  uint32 battery_percent = 1;
+  Pose pose = 2;
+  RobotState state = 3;
+}
+
+// Empty robot_ids means all devices allowed by the connection's access scope.
+message Subscribe {
+  repeated string robot_ids = 1;
+}
+
+message RobotSnapshot {
+  string robot_id = 1;
+  string session_id = 2;
+  bool online = 3;
+  Telemetry latest_telemetry = 4; // Absent when no telemetry has been received.
+  uint64 telemetry_seq = 5;
+  uint64 last_seen_at_ms = 6; // Gateway observation time.
+}
+
+message Snapshot {
+  repeated RobotSnapshot robots = 1;
+  uint64 observed_at_ms = 2;
+}
+
+message DeviceStatusChanged {
+  bool online = 1;
+  string reason = 2;
+  uint64 observed_at_ms = 3;
+}
+
+enum Action {
+  ACTION_UNSPECIFIED = 0;
+  ACTION_MOVE_FORWARD = 1;
+  ACTION_TURN_LEFT = 2;
+  ACTION_TURN_RIGHT = 3;
+  ACTION_STOP = 4;
+}
+
+message MotionParameters {
+  double speed_mps = 1;
+  double angular_speed_rad_s = 2; // Magnitude; left/right action determines sign.
+  uint32 duration_ms = 3;
+}
+
+message CommandRequest {
+  string command_id = 1;
+  Action action = 2;
+  MotionParameters motion = 3; // Required for motion actions, absent for STOP.
+}
+
+message CommandAck {
+  string command_id = 1;
+  bool accepted = 2;
+  string reason = 3;
+}
+
+enum CommandOutcome {
+  COMMAND_OUTCOME_UNSPECIFIED = 0;
+  COMMAND_OUTCOME_SUCCEEDED = 1;
+  COMMAND_OUTCOME_FAILED = 2;
+  COMMAND_OUTCOME_INTERRUPTED = 3;
+}
+
+message CommandResult {
+  string command_id = 1;
+  CommandOutcome outcome = 2;
+  string reason = 3;
+}
+
+enum CommandPhase {
+  COMMAND_PHASE_UNSPECIFIED = 0;
+  COMMAND_PHASE_CREATED = 1;
+  COMMAND_PHASE_SENT = 2;
+  COMMAND_PHASE_ACKED = 3;
+  COMMAND_PHASE_SUCCEEDED = 4;
+  COMMAND_PHASE_FAILED = 5;
+  COMMAND_PHASE_REJECTED = 6;
+  COMMAND_PHASE_ACK_TIMEOUT = 7;
+  COMMAND_PHASE_RESULT_TIMEOUT = 8;
+  COMMAND_PHASE_UNKNOWN = 9;
+  COMMAND_PHASE_INTERRUPTED = 10;
+}
+
+message CommandStatus {
+  string command_id = 1;
+  CommandPhase phase = 2;
+  string reason = 3;
+  uint64 observed_at_ms = 4;
+}
+
+message Error {
+  string request_id = 1;
+  string code = 2;
+  string message = 3;
+}

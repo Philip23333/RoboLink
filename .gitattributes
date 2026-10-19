@@ -1,0 +1,7 @@
+* text=auto
+*.md text eol=lf
+*.proto text eol=lf
+*.ps1 text eol=lf
+mvnw text eol=lf
+mvnw.cmd text eol=crlf
+
